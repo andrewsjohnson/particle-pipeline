@@ -97,14 +97,9 @@ fn hash(p : vec3<i32>) -> f32 {
     var particle = src.particles[idx];
     let scaledPos = particle.position * P.fieldScale;
     let curl = curlAt(scaledPos, P.eps);
-    particle.velocity = particle.velocity + curl * P.strength;
-    // dst.particles[idx].position = particle.position;
-    // dst.particles[idx].color = particle.color;
-    // dst.particles[idx].age = particle.age;
-    // dst.particles[idx].lifetime = particle.lifetime;
-    // dst.particles[idx].alive = particle.alive;
-    // dst.particles[idx].id = particle.id;
-    dst.particles[idx].velocity = particle.velocity + curl * P.strength;
+
+    let curlNormalized = normalize(curl);
+    particle.velocity = particle.velocity + curlNormalized * P.strength;
     dst.particles[idx] = particle;
   }
   

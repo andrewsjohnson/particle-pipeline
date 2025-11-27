@@ -6,6 +6,7 @@ import { CompositeNode } from "./nodes/composite.ts";
 import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
 import { CurlNoiseNode } from "./nodes/curlNoise.ts";
 import { ResetVelNode } from "./nodes/resetVel.ts";
+import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -43,7 +44,7 @@ async function main() {
   });
 
   // Simulation Parameters
-  const particleCount = 500_00;
+  const particleCount = 500_000;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -55,6 +56,7 @@ async function main() {
   })
 
   pipeline.addNode(new SpawnSphereNode());
+  pipeline.addNode(new SetSpawnColorNode());
   pipeline.addNode(new ResetVelNode());
   pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());
