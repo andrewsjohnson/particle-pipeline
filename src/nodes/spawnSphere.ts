@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export class SpawnSphereNode extends GPUNode {
@@ -7,9 +8,7 @@ export class SpawnSphereNode extends GPUNode {
 
   async init(device: GPUDevice, ctx: any) {
     // Load WGSL shader
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/spawnSphere.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/spawnSphere.wgsl");
 
     // Create compute pipeline
     this.pipeline = device.createComputePipeline({

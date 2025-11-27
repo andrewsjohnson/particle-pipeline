@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { perspectiveMatrix } from "../utils/perspectiveMatrix.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 import { multiplyMat4 } from "../utils/math.ts";
@@ -14,9 +15,7 @@ export class RenderParticlesNode extends GPUNode {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/renderParticles.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/renderParticles.wgsl");
 
     this.pipeline = device.createRenderPipeline({
       layout: "auto",
@@ -25,12 +24,10 @@ export class RenderParticlesNode extends GPUNode {
         module,
         entryPoint: "fs_main",
         targets: [{
-          format: "rgba32float",//"rgba16float",
+          format: "rgba32float",
           blend: {
             color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
             alpha: { srcFactor: "one", dstFactor: "one" },
-            // color: { srcFactor: "one", dstFactor: "one" },
-            // alpha: { srcFactor: "one", dstFactor: "one" },
           },
         }],
       },

@@ -10,18 +10,10 @@ var<storage, read_write> dst : ParticleBuffer;
 
 // Uniforms Buffer (if needed)
 struct Params { 
-    saturation: f32,
-    offset: f32,
-    scale: f32,
+    minMass: f32,
+    maxMass: f32,
     _pad0: f32,
-    a: vec3<f32>,
     _pad1: f32,
-    b: vec3<f32>,
-    _pad2: f32,
-    c: vec3<f32>,
-    _pad3: f32,
-    d: vec3<f32>,
-    _pad4: f32,
 };
 
 // Uniforms Binding
@@ -29,13 +21,27 @@ struct Params {
 var<uniform> P : Params;
 
 
-/* UTIL FUNCTIONS GO HERE */
-fn getParticleDistFromOrigin(particle: Particle) -> f32 {
-    return length(particle.position);
+////////////////////////////////////////////////////////////
+// XOROSHIRO32* — single u32 state
+////////////////////////////////////////////////////////////
+
+fn rotl32(x: u32, k: u32) -> u32 {
+    return (x << k) | (x >> (32u - k));
 }
 
-fn util() {
-    /* DO STUFF */
+fn xrs32_next(state: ptr<function, u32>) -> u32 {
+    var x = *state;
+    x ^= x << 7u;
+    x ^= x >> 9u;
+    x ^= x << 8u;
+    *state = x;
+    // star transform
+    return rotl32(x * 0x9E3779BBu, 5u);
+}
+
+// convert to [0,1)
+fn rand_f(state: ptr<function, u32>) -> f32 {
+    return f32(xrs32_next(state)) / 4294967295.0;
 }
   
 @compute @workgroup_size(256)
@@ -53,16 +59,9 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     // change particle attributes if age is 0
     if (particle.age == 0.0 && particle.alive == 1u) {
-        var dist = getParticleDistFromOrigin(particle);
-        var rangeOffset = P.saturation * 0.1f;
-        dist /= 2.0f;
-        dist *= P.scale;
-        dist += P.offset;
-
-        var d = vec3<f32>(P.d.x - rangeOffset, P.d.y, P.d.z + rangeOffset);
-
-        particle.color = vec4<f32>(P.a + P.b * cos(6.28318 * (P.c * dist + d)), particle.color.a);
-        // particle.color = vec4<f32>(P.saturation, P.saturation, P.saturation, 1.0);
+        var state: u32 = idx ^ 0x1F123BB5u;
+        var mass = rand_f(&state);
+        particle.mass = P.minMass + mass * (P.maxMass - P.minMass);
     }
     // write particle to destination buffer
     // note: you *must* write to the destination buffer

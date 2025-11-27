@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export class CompositeNode extends GPUNode {
@@ -6,8 +7,8 @@ export class CompositeNode extends GPUNode {
   private sampler!: GPUSampler;
 
   async init(device: GPUDevice, ctx: any) {
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/composite.wgsl").then(r => r.text()),
+    const module = await loadShaderModule(device, "/src/shaders/composite.wgsl", {
+      includeParticleStruct: false,
     });
 
     const canvasFormat = navigator.gpu.getPreferredCanvasFormat();

@@ -1,10 +1,26 @@
 // This is a base compute node that can be used as a starting point for other compute nodes.
 
-import { GPUNode, type GPUNodeStage } from "../../nodes/base.ts";
-import { loadShaderModule } from "../../shaders/loadShader.ts";
+import { loadShaderModule } from "../shaders/loadShader.ts";
+import { GPUNode, type GPUNodeStage } from "./base.ts";
 
+interface SetSpawnMassParams {
+  minMass: number;
+  maxMass: number;
+}
 
-export class ComputeBaseNode extends GPUNode {
+/**
+ * Params
+ * minMass: f32 - Minimum mass
+ * maxMass: f32 - Maximum mass
+ */ 
+
+const PADDING_VALUE = 0.0;
+const DEFAULT_PARAMS: SetSpawnMassParams = {
+  minMass: 0.1,
+  maxMass: 1.0,
+};
+
+export class SetSpawnMassNode extends GPUNode {
   stage: GPUNodeStage = "compute";
 
   // Compute pipeline
@@ -14,14 +30,22 @@ export class ComputeBaseNode extends GPUNode {
   // Uniforms buffer (if needed)
   private paramsBuffer!: GPUBuffer;
 
+  // Params
+  params: SetSpawnMassParams;
+
+  constructor(params?: SetSpawnMassParams) {
+    super();
+    this.params = {...DEFAULT_PARAMS, ...params};
+  }
+
   // Initialize the node, this is called once when the node is created.
   async init(device: GPUDevice, ctx: any) {
     // Load WGSL shader
-    const module = await loadShaderModule(device, "/src/shaders/integrator.wgsl");
+    const module = await loadShaderModule(device, "/src/shaders/setSpawnMass.wgsl");
 
     // Create uniforms buffer (if needed)
     this.paramsBuffer = device.createBuffer({
-      size: 4,
+      size: 4 + 4 + 4 + 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -31,13 +55,16 @@ export class ComputeBaseNode extends GPUNode {
       compute: { module, entryPoint: "main" },
     });
   }
-
   // Record the node, this is called every frame.
   record(encoder: GPUCommandEncoder, ctx: any) {
-
     // Write uniforms to buffer (if needed)
-    const dt = new Float32Array([ctx.deltaTime]);
-    ctx.queue.writeBuffer(this.paramsBuffer, 0, dt);
+    const params = new Float32Array([
+      this.params.minMass,
+      this.params.maxMass,
+      PADDING_VALUE,
+      PADDING_VALUE,
+    ])
+    ctx.queue.writeBuffer(this.paramsBuffer, 0, params);
 
     // Create bind group
     // Bind source and destination buffers, and uniforms buffer (if needed)

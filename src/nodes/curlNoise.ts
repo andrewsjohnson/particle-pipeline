@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export class CurlNoiseNode extends GPUNode {
@@ -6,14 +7,12 @@ export class CurlNoiseNode extends GPUNode {
   private bindGroup!: GPUBindGroup;
   private paramsBuffer!: GPUBuffer;
 
-  fieldScale = 3;
+  fieldScale = 0.5;
   strength = .5;
-  eps = 0.1;
+  eps = 2; // Set high for swirlies
 
   async init(device: GPUDevice, ctx: any) {
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/curl.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/curl.wgsl");
 
     this.paramsBuffer = device.createBuffer({
       size: 4 + 4 + 4 + 4, 

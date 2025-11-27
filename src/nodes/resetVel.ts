@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export class ResetVelNode extends GPUNode {
@@ -6,9 +7,7 @@ export class ResetVelNode extends GPUNode {
   private bindGroup!: GPUBindGroup;
   
   async init(device: GPUDevice, ctx: any) {
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/resetVel.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/resetVel.wgsl");
 
     this.pipeline = device.createComputePipeline({
       layout: "auto",

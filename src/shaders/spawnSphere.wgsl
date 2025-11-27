@@ -2,18 +2,6 @@
 // PARTICLE DATA
 ////////////////////////////////////////////////////////////
 
-struct Particle {
-    position : vec3<f32>,
-    _pad0 : f32,
-    velocity : vec3<f32>,
-    _pad1 : f32,
-    color : vec4<f32>,
-    age : f32,
-    lifetime : f32,
-    alive : u32,
-    id : u32,
-};
-
 ////////////////////////////////////////////////////////////
 // SPAWN INPUT
 ////////////////////////////////////////////////////////////
@@ -103,6 +91,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
     p.velocity = vec3<f32>(0.0);
     p.color    = vec4<f32>(1.0, 0.05, 0.01, 0.001);
+    p.mass     = 1.0;
     p.age      = 0.0;
     p.lifetime = 10000.0;
     p.alive    = 1u;

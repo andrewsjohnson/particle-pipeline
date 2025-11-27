@@ -1,17 +1,3 @@
-struct Particle {
-    position : vec3<f32>,
-    _pad0 : f32,
-    velocity : vec3<f32>,
-    _pad1 : f32,
-    color : vec4<f32>,
-    age : f32,
-    lifetime : f32,
-    alive : u32,
-    id : u32,
-};
-
-struct ParticleBuffer { particles : array<Particle> };
-
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
 
@@ -36,8 +22,10 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     //     return;
     // }
 
-    // --- UPDATED POSITION ---
-    d.position = s.position + s.velocity * P.dt;
+    // --- UPDATED POSITION (heavier particles move proportionally slower) ---
+    let safeMass = max(s.mass, 0.001);
+    let massFactor = 1.0 / safeMass;
+    d.position = s.position + s.velocity * massFactor * P.dt;
 
     // --- PRESERVE VELOCITY ---
     d.velocity = s.velocity;

@@ -1,17 +1,3 @@
-struct Particle {
-    position : vec3<f32>,
-    _pad0 : f32,
-    velocity : vec3<f32>,
-    _pad1 : f32,
-    color : vec4<f32>,
-    age : f32,
-    lifetime : f32,
-    alive : u32,
-    id : u32,
-};
-
-struct ParticleBuffer { particles : array<Particle> };
-
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
 

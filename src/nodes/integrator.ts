@@ -1,3 +1,4 @@
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export class IntegratorNode extends GPUNode {
@@ -8,9 +9,7 @@ export class IntegratorNode extends GPUNode {
 
 
   async init(device: GPUDevice, ctx: any) {
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/integrator.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/integrator.wgsl");
 
     this.paramsBuffer = device.createBuffer({
       size: 4,

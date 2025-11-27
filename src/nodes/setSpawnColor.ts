@@ -1,5 +1,6 @@
 // This is a base compute node that can be used as a starting point for other compute nodes.
 
+import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 interface SetSpawnColorParams {
@@ -55,9 +56,7 @@ export class SetSpawnColorNode extends GPUNode {
   // Initialize the node, this is called once when the node is created.
   async init(device: GPUDevice, ctx: any) {
     // Load WGSL shader
-    const module = device.createShaderModule({
-      code: await fetch("/src/shaders/setSpawnColor.wgsl").then(r => r.text()),
-    });
+    const module = await loadShaderModule(device, "/src/shaders/setSpawnColor.wgsl");
 
     // Create uniforms buffer (if needed)
     this.paramsBuffer = device.createBuffer({

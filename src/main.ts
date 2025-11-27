@@ -7,6 +7,7 @@ import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
 import { CurlNoiseNode } from "./nodes/curlNoise.ts";
 import { ResetVelNode } from "./nodes/resetVel.ts";
 import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
+import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -56,7 +57,8 @@ async function main() {
   })
 
   pipeline.addNode(new SpawnSphereNode());
-  pipeline.addNode(new SetSpawnColorNode());
+  pipeline.addNode(new SetSpawnColorNode());  
+  pipeline.addNode(new SetSpawnMassNode());
   pipeline.addNode(new ResetVelNode());
   pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());

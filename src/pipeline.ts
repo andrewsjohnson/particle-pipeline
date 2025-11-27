@@ -1,4 +1,5 @@
 import { GPUNode } from "./nodes/base.ts";
+import { PARTICLE_SIZE } from "./particles/particleLayout.ts";
 
 interface PipelineOptions {
     particleCount: number;
@@ -6,9 +7,6 @@ interface PipelineOptions {
     renderHeight: number;
     particleTextureFormat: GPUTextureFormat;
 }
-
-// Particle layout must be 16-byte aligned per vec3
-const PARTICLE_SIZE = 16 + 16 + 16 + 4 + 4 + 4 + 4; // Rough size per particle
 
 export class Pipeline {
     device: GPUDevice;
