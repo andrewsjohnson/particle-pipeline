@@ -11,10 +11,15 @@ struct SpawnSphere {
     radius : f32,
 };
 
+// Source Buffer
 @group(0) @binding(0)
-var<storage, read_write> particles : array<Particle>;
+var<storage, read> src : ParticleBuffer;
 
+// Destination Buffer
 @group(0) @binding(1)
+var<storage, read_write> dst : ParticleBuffer;
+
+@group(0) @binding(2)
 var<uniform> sphere : SpawnSphere;
 
 
@@ -68,13 +73,18 @@ fn sample_radius(r: f32) -> f32 {
 
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
-
+    
     let idx = gid.x;
-    if (idx >= arrayLength(&particles)) {
+    if (idx >= arrayLength(&src.particles)) {
         return;
     }
 
-    var p = particles[idx];
+    if (src.particles[idx].needsRespawn != 1u) {
+        dst.particles[idx] = src.particles[idx];
+        return;
+    }
+
+    var p = src.particles[idx];
 
     // seed per particle
     var state: u32 = idx ^ 0x1F123BB5u;
@@ -87,15 +97,10 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     let scale = sample_radius(r2);
     let dist  = sphere.radius * scale;
 
+    p.age = 0.0;
     p.position = sphere.origin + dir * dist;
+    p.needsRespawn = 0u;
+    p.alive = 1u;
 
-    p.velocity = vec3<f32>(0.0);
-    p.color    = vec4<f32>(1.0, 0.05, 0.01, 0.001);
-    p.mass     = 1.0;
-    p.age      = 0.0;
-    p.lifetime = 10000.0;
-    p.alive    = 1u;
-    p.id       = idx;
-
-    particles[idx] = p;
+    dst.particles[idx] = p;
 }

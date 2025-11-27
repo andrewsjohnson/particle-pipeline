@@ -8,6 +8,8 @@ import { CurlNoiseNode } from "./nodes/curlNoise.ts";
 import { ResetVelNode } from "./nodes/resetVel.ts";
 import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
 import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
+import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
+import { MinVelKillNode } from "./nodes/minVelKill.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -45,7 +47,7 @@ async function main() {
   });
 
   // Simulation Parameters
-  const particleCount = 500_000;
+  const particleCount = 1_000_000;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -56,12 +58,14 @@ async function main() {
     particleTextureFormat: "rgba32float"
   })
 
+  pipeline.addNode(new InitializeParticlesNode());
   pipeline.addNode(new SpawnSphereNode());
   pipeline.addNode(new SetSpawnColorNode());  
   pipeline.addNode(new SetSpawnMassNode());
   pipeline.addNode(new ResetVelNode());
   pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());
+  pipeline.addNode(new MinVelKillNode());
   pipeline.addNode(new RenderParticlesNode());
   pipeline.addNode(new CompositeNode());
 

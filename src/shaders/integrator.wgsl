@@ -34,9 +34,10 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     d.age = s.age + P.dt;
 
     // OPTIONAL LIFETIME KILL
-    // if (d.age > d.lifetime) {
-    //     d.alive = 0u;
-    // }
+    if (d.age > d.lifetime) {
+        d.alive = 0u;
+        d.needsRespawn = 1u;
+    }
 
     dst.particles[i] = d;
 }

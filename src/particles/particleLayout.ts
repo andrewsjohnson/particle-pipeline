@@ -17,6 +17,7 @@ const PARTICLE_FIELDS: ParticleField[] = [
   { name: "age", wgslType: "f32", size: 4 },
   { name: "lifetime", wgslType: "f32", size: 4 },
   { name: "alive", wgslType: "u32", size: 4 },
+  { name: "needsRespawn", wgslType: "u32", size: 4 },
   { name: "id", wgslType: "u32", size: 4 },
 ];
 

@@ -29,7 +29,7 @@ export class SpawnSphereNode extends GPUNode {
 
   record(encoder: GPUCommandEncoder, ctx: any) {
     // Run one time only
-    if (ctx.frameIndex !== 0) return false;
+    // if (ctx.frameIndex !== 0) return false;
 
     // Bind **particleSrc**, NOT particleDst.
     // Spawn is the origin of truth.
@@ -39,10 +39,14 @@ export class SpawnSphereNode extends GPUNode {
       entries: [
         {
           binding: 0,
-          resource: { buffer: ctx.particleDst },
+          resource: { buffer: ctx.particleSrc },
         },
         {
           binding: 1,
+          resource: { buffer: ctx.particleDst },
+        },
+        {
+          binding: 2,
           resource: { buffer: this.sphereBuffer },
         },
       ],
@@ -55,11 +59,6 @@ export class SpawnSphereNode extends GPUNode {
     const workgroups = Math.ceil(ctx.particleCount / 256);
     pass.dispatchWorkgroups(workgroups);
     pass.end();
-
-    console.log(
-      `%cSpawnSphereNode → generated ${ctx.particleCount} particles`,
-      "color:#a0ff6c;font-weight:bold;"
-    );
     return true;
   }
 }

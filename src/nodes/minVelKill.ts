@@ -1,21 +1,18 @@
 import { loadShaderModule } from "../shaders/loadShader.ts";
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
-export class CurlNoiseNode extends GPUNode {
+export class MinVelKillNode extends GPUNode {
   stage: GPUNodeStage = "compute";
   private pipeline!: GPUComputePipeline;
   private bindGroup!: GPUBindGroup;
   private paramsBuffer!: GPUBuffer;
 
-  fieldScale = 0.75;
-  strength = .5;
-  eps = 0.9; // Set high for swirlies
 
   async init(device: GPUDevice, ctx: any) {
-    const module = await loadShaderModule(device, "/src/shaders/curl.wgsl");
+    const module = await loadShaderModule(device, "/src/shaders/minVelKill.wgsl");
 
     this.paramsBuffer = device.createBuffer({
-      size: 4 + 4 + 4 + 4, 
+      size: 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -26,8 +23,9 @@ export class CurlNoiseNode extends GPUNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    const dt = new Float32Array([ctx.deltaTime, this.fieldScale, this.strength, this.eps]);
-    ctx.queue.writeBuffer(this.paramsBuffer, 0, dt);
+    if (ctx.frameIndex === 0) return false;
+    const minVel = new Float32Array([0.005]);
+    ctx.queue.writeBuffer(this.paramsBuffer, 0, minVel);
 
     this.bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
@@ -43,5 +41,6 @@ export class CurlNoiseNode extends GPUNode {
     pass.setBindGroup(0, this.bindGroup);
     pass.dispatchWorkgroups(Math.ceil(ctx.particleCount / 256));
     pass.end();
+    return true;
   }
 }
