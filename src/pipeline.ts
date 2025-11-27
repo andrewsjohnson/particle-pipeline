@@ -13,7 +13,8 @@ const PARTICLE_SIZE = 16 + 16 + 16 + 4 + 4 + 4 + 4; // Rough size per particle
 export class Pipeline {
     device: GPUDevice;
     ctx: GPUCanvasContext;
-    nodes: GPUNode[] = [];
+    computeNodes: GPUNode[] = [];
+    renderNodes: GPUNode[] = [];
 
     particleCount: number;
     particleA!: GPUBuffer;
@@ -35,7 +36,7 @@ export class Pipeline {
         
         // Persistent offscreen float texture (accumulation)
         this.renderTexture = device.createTexture({
-            size: { width: opts.renderWidth, height: opts.renderHeight },
+            size: { width: opts.renderWidth * 2, height: opts.renderHeight * 2 },
             format: opts.particleTextureFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
             sampleCount: 1,
@@ -46,7 +47,11 @@ export class Pipeline {
     }
 
     addNode(node: GPUNode) {
-        this.nodes.push(node);
+        if (node.stage === "compute") {
+            this.computeNodes.push(node);
+        } else if (node.stage === "render") {
+            this.renderNodes.push(node);
+        }
     }
 
     async init() {
@@ -61,7 +66,10 @@ export class Pipeline {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
         });
 
-        for (const node of this.nodes) {
+        for (const node of this.computeNodes) {
+            await node.init(this.device, this._contextStatic());
+        }
+        for (const node of this.renderNodes) {
             await node.init(this.device, this._contextStatic());
         }
     }
@@ -113,19 +121,19 @@ export class Pipeline {
         const ctx = this._contextFrame(dt);
     
         // 1. compute nodes
-        for (const node of this.nodes.slice(0, this.nodes.length - 2)) {
-            node.record(encoder, ctx);
+        for (const node of this.computeNodes) {
+            const didWrite = node.record(encoder, ctx);
+            if (didWrite === false) {
+                continue;
+            }
+            // 2. swap after each compute step that produced output
+            [this.particleA, this.particleB] = [this.particleB, this.particleA];
+            ctx.particleSrc = this.particleA;
+            ctx.particleDst = this.particleB;
         }
     
-        // 2. swap before render
-        [this.particleA, this.particleB] = [this.particleB, this.particleA];
-    
-        // refresh references for render
-        ctx.particleSrc = this.particleA;
-        ctx.particleDst = this.particleB;
-    
         // 3. render nodes
-        for (const node of this.nodes.slice(this.nodes.length - 2)) {
+        for (const node of this.renderNodes) {
             node.record(encoder, ctx);
         }
     

@@ -4,6 +4,8 @@ import { IntegratorNode } from "./nodes/integrator.ts";
 import { RenderParticlesNode } from "./nodes/renderParticles.ts";
 import { CompositeNode } from "./nodes/composite.ts";
 import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
+import { CurlNoiseNode } from "./nodes/curlNoise.ts";
+import { ResetVelNode } from "./nodes/resetVel.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -13,9 +15,7 @@ async function main() {
     return;
   }
 
-  const adapter = await navigator.gpu.requestAdapter({
-    powerPreference: "high-performance",
-  });
+  const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) {
     alert("No WebGPU adapter found");
     return;
@@ -43,7 +43,7 @@ async function main() {
   });
 
   // Simulation Parameters
-  const particleCount = 500_000;
+  const particleCount = 500_00;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -51,10 +51,12 @@ async function main() {
     particleCount,
     renderWidth: canvas.width,
     renderHeight: canvas.height,
-    particleTextureFormat: "rgba16float"
+    particleTextureFormat: "rgba32float"
   })
 
   pipeline.addNode(new SpawnSphereNode());
+  pipeline.addNode(new ResetVelNode());
+  pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new RenderParticlesNode());
   pipeline.addNode(new CompositeNode());

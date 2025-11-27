@@ -1,20 +1,13 @@
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
-export class IntegratorNode extends GPUNode {
+export class ResetVelNode extends GPUNode {
   stage: GPUNodeStage = "compute";
   private pipeline!: GPUComputePipeline;
   private bindGroup!: GPUBindGroup;
-  private paramsBuffer!: GPUBuffer;
-
-
+  
   async init(device: GPUDevice, ctx: any) {
     const module = device.createShaderModule({
-      code: await fetch("/src/shaders/integrator.wgsl").then(r => r.text()),
-    });
-
-    this.paramsBuffer = device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      code: await fetch("/src/shaders/resetVel.wgsl").then(r => r.text()),
     });
 
     this.pipeline = device.createComputePipeline({
@@ -24,16 +17,11 @@ export class IntegratorNode extends GPUNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    if (ctx.frameIndex === 0) return false;
-    const dt = new Float32Array([ctx.deltaTime]);
-    ctx.queue.writeBuffer(this.paramsBuffer, 0, dt);
-
     this.bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 1, resource: { buffer: ctx.particleDst } },
-        { binding: 2, resource: { buffer: this.paramsBuffer } },
       ],
     });
 

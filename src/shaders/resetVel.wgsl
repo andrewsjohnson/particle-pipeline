@@ -18,37 +18,14 @@ var<storage, read> src : ParticleBuffer;
 @group(0) @binding(1)
 var<storage, read_write> dst : ParticleBuffer;
 
-struct Params { dt : f32 };
-@group(0) @binding(2)
-var<uniform> P : Params;
-
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     let i = gid.x;
     let total = arrayLength(&src.particles);
     if (i >= total) { return; }
 
-    let s = src.particles[i];
-    var d = s;
 
-    // if (s.alive == 0u) {
-    //     dst.particles[i] = s;
-    //     return;
-    // }
-
-    // --- UPDATED POSITION ---
-    d.position = s.position + s.velocity * P.dt;
-
-    // --- PRESERVE VELOCITY ---
-    d.velocity = s.velocity;
-
-    // --- UPDATE AGE ---
-    d.age = s.age + P.dt;
-
-    // OPTIONAL LIFETIME KILL
-    // if (d.age > d.lifetime) {
-    //     d.alive = 0u;
-    // }
-
-    dst.particles[i] = d;
+    var particle = src.particles[i];
+    particle.velocity = vec3<f32>(0.0);
+    dst.particles[i] = particle;
 }

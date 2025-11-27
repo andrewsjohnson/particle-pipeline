@@ -1,19 +1,22 @@
 import { GPUNode, type GPUNodeStage } from "./base.ts";
 
-export class IntegratorNode extends GPUNode {
+export class CurlNoiseNode extends GPUNode {
   stage: GPUNodeStage = "compute";
   private pipeline!: GPUComputePipeline;
   private bindGroup!: GPUBindGroup;
   private paramsBuffer!: GPUBuffer;
 
+  fieldScale = 3;
+  strength = .5;
+  eps = 0.1;
 
   async init(device: GPUDevice, ctx: any) {
     const module = device.createShaderModule({
-      code: await fetch("/src/shaders/integrator.wgsl").then(r => r.text()),
+      code: await fetch("/src/shaders/curl.wgsl").then(r => r.text()),
     });
 
     this.paramsBuffer = device.createBuffer({
-      size: 4,
+      size: 4 + 4 + 4 + 4, 
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -24,8 +27,7 @@ export class IntegratorNode extends GPUNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    if (ctx.frameIndex === 0) return false;
-    const dt = new Float32Array([ctx.deltaTime]);
+    const dt = new Float32Array([ctx.deltaTime, this.fieldScale, this.strength, this.eps]);
     ctx.queue.writeBuffer(this.paramsBuffer, 0, dt);
 
     this.bindGroup = ctx.device.createBindGroup({
@@ -42,6 +44,5 @@ export class IntegratorNode extends GPUNode {
     pass.setBindGroup(0, this.bindGroup);
     pass.dispatchWorkgroups(Math.ceil(ctx.particleCount / 256));
     pass.end();
-    return true;
   }
 }
