@@ -1,39 +1,32 @@
-import { loadShaderModule } from "../shaders/loadShader.ts";
-import { GPUNode, type GPUNodeStage } from "./base.ts";
+import { GPUComputeNode } from "./kinds/compute-node.ts";
 
-export class SpawnSphereNode extends GPUNode {
-  stage: GPUNodeStage = "compute";
-  private pipeline!: GPUComputePipeline;
-  private sphereBuffer!: GPUBuffer;
+export class SpawnSphereNode extends GPUComputeNode {
+  static shaderPath: string = "/src/shaders/spawnSphere.wgsl";
+  paramBuffer!: GPUBuffer;
 
-  async init(device: GPUDevice, ctx: any) {
-    // Load WGSL shader
-    const module = await loadShaderModule(device, "/src/shaders/spawnSphere.wgsl");
+  origin: [number, number, number] = [0, 0, 0];
+  radius: number = 1.0;
 
-    // Create compute pipeline
-    this.pipeline = device.createComputePipeline({
-      layout: "auto",
-      compute: {
-        module,
-        entryPoint: "main",
-      },
+  updateParams(ctx: any) {
+    const params = new Float32Array([
+      this.origin[0],
+      this.origin[1],
+      this.origin[2],
+      this.radius,
+    ]);
+    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+  }
+
+  onPipelineReady(device: GPUDevice, _ctx: any) {
+    this.paramBuffer = device.createBuffer({
+      size: 4 * 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    this.sphereBuffer = device.createBuffer({
-      size: 4 * 4 * 4, // SpawnSphere struct
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-
-    ctx.queue.writeBuffer(this.sphereBuffer, 0, new Float32Array([0, 0, 0, 1]));
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    // Run one time only
-    // if (ctx.frameIndex !== 0) return false;
+    this.updateParams(ctx);
 
-    // Bind **particleSrc**, NOT particleDst.
-    // Spawn is the origin of truth.
-    // particleSrc -> integrator -> particleDst -> ping-pong
     const bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [
@@ -47,7 +40,7 @@ export class SpawnSphereNode extends GPUNode {
         },
         {
           binding: 2,
-          resource: { buffer: this.sphereBuffer },
+          resource: { buffer: this.paramBuffer },
         },
       ],
     });
@@ -55,9 +48,7 @@ export class SpawnSphereNode extends GPUNode {
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, bindGroup);
-
-    const workgroups = Math.ceil(ctx.particleCount / 256);
-    pass.dispatchWorkgroups(workgroups);
+    pass.dispatchWorkgroups(Math.ceil(ctx.particleCount / 256));
     pass.end();
     return true;
   }

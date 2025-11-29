@@ -1,4 +1,6 @@
-import { GPUNode } from "./nodes/base.ts";
+import { GPUNode } from "./nodes/kinds/base.ts";
+import type { GPUComputeNode } from "./nodes/kinds/compute-node.ts";
+import type { GPURenderNode } from "./nodes/kinds/render-node.ts";
 import { PARTICLE_SIZE } from "./particles/particleLayout.ts";
 
 interface PipelineOptions {
@@ -11,8 +13,8 @@ interface PipelineOptions {
 export class Pipeline {
     device: GPUDevice;
     ctx: GPUCanvasContext;
-    computeNodes: GPUNode[] = [];
-    renderNodes: GPUNode[] = [];
+    computeNodes: GPUComputeNode[] = [];
+    renderNodes: GPURenderNode[] = [];
 
     particleCount: number;
     particleA!: GPUBuffer;
@@ -46,9 +48,9 @@ export class Pipeline {
 
     addNode(node: GPUNode) {
         if (node.stage === "compute") {
-            this.computeNodes.push(node);
+            this.computeNodes.push(node as GPUComputeNode);
         } else if (node.stage === "render") {
-            this.renderNodes.push(node);
+            this.renderNodes.push(node as GPURenderNode);
         }
     }
 

@@ -3,7 +3,7 @@ import { SpawnSphereNode } from "./nodes/spawnSphere.ts";
 import { IntegratorNode } from "./nodes/integrator.ts";
 import { RenderParticlesNode } from "./nodes/renderParticles.ts";
 import { CompositeNode } from "./nodes/composite.ts";
-import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
+// import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
 import { CurlNoiseNode } from "./nodes/curlNoise.ts";
 import { ResetVelNode } from "./nodes/resetVel.ts";
 import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
@@ -94,10 +94,9 @@ async function main() {
 
   frame();
   console.log("canvas size", canvas.width, canvas.height);
-console.log("ctx format", navigator.gpu.getPreferredCanvasFormat());
-console.log("render target view", pipeline.renderTextureView);
-console.log("pipeline", pipeline);
-
+  console.log("ctx format", navigator.gpu.getPreferredCanvasFormat());
+  console.log("render target view", pipeline.renderTextureView);
+  console.log("pipeline", pipeline);
 }
 
 main();

@@ -1,4 +1,18 @@
-// This is a base compute shader that can be used as a starting point for other compute shaders.
+struct Particle {
+    position : vec3<f32>,
+    _pad0 : f32,
+    velocity : vec3<f32>,
+    _pad1 : f32,
+    color : vec4<f32>,
+    mass : f32,
+    age : f32,
+    lifetime : f32,
+    alive : u32,
+    needsRespawn : u32,
+    id : u32,
+};
+
+struct ParticleBuffer { particles : array<Particle> };
 
 // Source Buffer
 @group(0) @binding(0)
