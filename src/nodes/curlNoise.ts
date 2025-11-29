@@ -6,7 +6,7 @@ export class CurlNoiseNode extends GPUComputeNode {
 
   fieldScale: number = 1.0;
   strength: number = 0.5;
-  eps: number = 1.2;
+  eps: number = 1.0;
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({

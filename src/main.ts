@@ -10,6 +10,7 @@ import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
 import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
 import { MinVelKillNode } from "./nodes/minVelKill.ts";
+import { RenderBokehParticlesNode } from "./nodes/renderBokehParticles.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -47,7 +48,7 @@ async function main() {
   });
 
   // Simulation Parameters
-  const particleCount = 1_000_000;
+  const particleCount = 500_000;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -66,7 +67,8 @@ async function main() {
   pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new MinVelKillNode());
-  pipeline.addNode(new RenderParticlesNode());
+  // pipeline.addNode(new RenderParticlesNode());
+  pipeline.addNode(new RenderBokehParticlesNode());
   pipeline.addNode(new CompositeNode());
 
   await pipeline.init();
