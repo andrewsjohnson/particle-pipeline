@@ -11,6 +11,8 @@ import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
 import { MinVelKillNode } from "./nodes/minVelKill.ts";
 import { RenderBokehParticlesNode } from "./nodes/renderBokehParticles.ts";
+import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
+import { PARTICLE_SIZE } from "./particles/particleLayout.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -25,8 +27,13 @@ async function main() {
     alert("No WebGPU adapter found");
     return;
   }
+
   const device = await adapter.requestDevice({
-    requiredFeatures: ["texture-formats-tier1", "texture-formats-tier2", "float32-filterable", "float32-blendable"]
+    requiredFeatures: ["texture-formats-tier1", "texture-formats-tier2", "float32-filterable", "float32-blendable"],
+    requiredLimits: {
+      maxBufferSize: 4 * 1024 * 1024 * 1024,
+      maxStorageBufferBindingSize: 1024 * 1024 * 1024,
+    }
   });
 
   if (!device) {
@@ -48,7 +55,7 @@ async function main() {
   });
 
   // Simulation Parameters
-  const particleCount = 500_000;
+  const particleCount = 3_000_000;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -67,8 +74,8 @@ async function main() {
   pipeline.addNode(new CurlNoiseNode());
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new MinVelKillNode());
-  // pipeline.addNode(new RenderParticlesNode());
-  pipeline.addNode(new RenderBokehParticlesNode());
+  pipeline.addNode(new RenderParticlesNode());
+  // pipeline.addNode(new RenderBokehParticlesNode());
   pipeline.addNode(new CompositeNode());
 
   await pipeline.init();
@@ -83,12 +90,12 @@ async function main() {
     pipeline.frame(dt);
 
     // Debug once after spawn runs
-    // if (pipeline.frameIndex === 2) {
-    //   const size = pipeline.particleCount * 64;
-    //   readGPUBuffer(device, pipeline.currentParticleBuffer, size).then(buf => {
-    //       const arr = parseParticles(buf, pipeline.particleCount);
-    //       console.table(arr);
-    //   });
+  //   if (pipeline.frameIndex === 2) {
+  //     const size = pipeline.particleCount * PARTICLE_SIZE;
+  //     readGPUBuffer(device, pipeline.currentParticleBuffer, size).then(buf => {
+  //         const arr = parseParticles(buf, pipeline.particleCount);
+  //         console.table(arr);
+  //     });
   // }
   
     requestAnimationFrame(frame);

@@ -4,9 +4,9 @@ export class CurlNoiseNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/curl.wgsl";
   paramBuffer!: GPUBuffer;
 
-  fieldScale: number = 1.0;
-  strength: number = 0.5;
-  eps: number = 1.0;
+  fieldScale: number = 1.5;
+  strength: number = 0.25;
+  eps: number = 0.8;
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({

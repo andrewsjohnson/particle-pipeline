@@ -56,7 +56,7 @@ export class RenderBokehParticlesNode extends GPURenderNode {
           format: "rgba32float",
           blend: {
             color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
-            alpha: { srcFactor: "one", dstFactor: "one" },
+            alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
           },
         }],
       },

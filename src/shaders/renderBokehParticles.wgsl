@@ -84,8 +84,7 @@ fn vs_main(
 fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
     let screenCenter = vec2<f32>(0.5,0.0);
     let blades = 6.0;
-    let ringStrength = 10.0;
-    let catEye = 0.0;
+    let ringStrength = 1.5;
 
     // uv [-1..1]
     let r = in.uv * 2.0 - 1.0;
@@ -107,19 +106,17 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
     // --- edge bright ring (donut) ---
     // lenses brighten edges due to aperture clipping
     let edge = smoothstep(0.85, 1.0, rad);
-    let ring = mix(1.0, ringStrength, edge);
-
+    let ring = 1.0 + edge * ringStrength;
     // --- cat-eye distortion (off-axis) ---
     // real bokeh compresses tangentially near screen edges
     let center = vec2<f32>(0.0, 0.0); // NDC center
     let dir = normalize(vec2<f32>(in.uv - center));
-    let cat = 1.0 + catEye * dot(dir, vec2<f32>(0.0, 1.0));
 
     // --- energy conservation ---
     // disc gets dimmer as it gets larger
     let energy = 1.0 / max(in.coc * in.coc, 0.001);
 
-    let alpha = in.col.a * energy * ring * cat;
+    let alpha = in.col.a * energy * ring;
     return vec4<f32>(in.col.rgb, alpha);
 }
 

@@ -19,6 +19,8 @@ const PARTICLE_FIELDS: ParticleField[] = [
   { name: "alive", wgslType: "u32", size: 4 },
   { name: "needsRespawn", wgslType: "u32", size: 4 },
   { name: "id", wgslType: "u32", size: 4 },
+  { name: "padding", wgslType: "f32", size: 4 },
+  { name: "padding2", wgslType: "f32", size: 4 },
 ];
 
 export const PARTICLE_SIZE = PARTICLE_FIELDS.reduce((sum, field) => sum + field.size, 0);

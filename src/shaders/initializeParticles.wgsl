@@ -34,7 +34,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
     p.position = vec3<f32>(0.0);
     p.velocity = vec3<f32>(0.0);
-    p.color    = vec4<f32>(1.0,1.0,1.0,0.0001);
+    p.color    = vec4<f32>(1.0,1.0,1.0,0.0002);
     p.mass     = 1.0;
     p.age      = 0.0;
     p.lifetime = 100.0;

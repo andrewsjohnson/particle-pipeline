@@ -79,7 +79,7 @@ fn random_unit_vector(r0: f32, r1: f32) -> vec3<f32> {
 ////////////////////////////////////////////////////////////
 
 fn sample_radius(r: f32) -> f32 {
-    return pow(r, 1.5);
+    return pow(r, 0.75);
 }
 
 

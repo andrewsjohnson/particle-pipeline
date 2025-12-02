@@ -4,9 +4,9 @@ export class SetSpawnColorNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/setSpawnColor.wgsl";
   paramBuffer!: GPUBuffer;
 
-  saturation: number = 2.5;
-  offset: number = 0.0;
-  scale: number = 1.0;
+  saturation: number = 1.5;
+  offset: number = 1.1;
+  scale: number = 2.2;
   a: [number, number, number] = [0.5, 0.5, 0.5];
   b: [number, number, number] = [0.5, 0.5, 0.5];
   c: [number, number, number] = [1.0, 1.0, 1.0];
