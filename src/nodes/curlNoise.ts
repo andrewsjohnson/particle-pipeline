@@ -15,7 +15,7 @@ export class CurlNoiseNode extends GPUComputeNode {
     const p = pane as any;
     p.addBinding(this, "fieldScale", { label: "Field Scale", min: 0, max: 5 });
     p.addBinding(this, "strength", { label: "Strength", min: 0, max: 5 });
-    p.addBinding(this, "eps", { label: "Epsilon", min: 0.000001, max: 0.01 });
+    p.addBinding(this, "eps", { label: "Epsilon", min: 0.000001, max: 1.0 });
     p.addBinding(this, "octaves", { label: "Octaves", min: 1, max: 12, step: 1 });
     p.addBinding(this, "lacunarity", { label: "Lacunarity", min: 0.5, max: 4 });
     p.addBinding(this, "gain", { label: "Gain", min: 0, max: 2 });

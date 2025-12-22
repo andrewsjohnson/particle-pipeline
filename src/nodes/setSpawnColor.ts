@@ -10,7 +10,7 @@ export class SetSpawnColorNode extends GPUComputeNode {
   a: [number, number, number] = [0.5, 0.5, 0.5];
   b: [number, number, number] = [0.5, 0.5, 0.5];
   c: [number, number, number] = [1.0, 1.0, 1.0];
-  d: [number, number, number] = [0.3, 0.0, -0.3];
+  d: [number, number, number] = [0.0, 0.2, 0.4];
 
   buildUI(pane: any) {
     const p = pane as any;
