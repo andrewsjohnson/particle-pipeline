@@ -24,6 +24,14 @@ var<storage, read> src : ParticleBuffer;
 @group(0) @binding(1)
 var<storage, read_write> dst : ParticleBuffer;
 
+struct InitParams {
+    baseOpacity : f32,
+    _pad0 : vec3<f32>,
+};
+
+@group(0) @binding(2)
+var<uniform> params : InitParams;
+
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
@@ -36,7 +44,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
     p.position = vec3<f32>(0.0);
     p.velocity = vec3<f32>(0.0);
-    p.color    = vec4<f32>(1.0,1.0,1.0,0.0002);
+    p.color    = vec4<f32>(1.0,1.0,1.0, params.baseOpacity);
     p.mass     = 1.0;
     p.age      = 0.0;
     p.lifetime = 100.0;

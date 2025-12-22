@@ -27,6 +27,10 @@ struct ParticleBuffer { particles : array<Particle> };
 struct SpawnSphere {
     origin : vec3<f32>,
     radius : f32,
+    baseOpacity : f32,
+    _pad0 : vec3<f32>,
+    _pad1 : vec4<f32>,
+    _pad2 : vec4<f32>
 };
 
 // Source Buffer
@@ -117,6 +121,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
     p.age = 0.0;
     p.opacityScale = 0.0;
+    p.color.a = sphere.baseOpacity;
     p.position = sphere.origin + dir * dist;
     p.needsRespawn = 0u;
     p.alive = 1u;

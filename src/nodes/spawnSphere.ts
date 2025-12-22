@@ -6,6 +6,7 @@ export class SpawnSphereNode extends GPUComputeNode {
 
   origin: [number, number, number] = [0, 0, 0];
   radius: number = 1.0;
+  baseOpacity: number = 0.0002;
 
   buildUI(pane: any) {
     const p = pane as any;
@@ -22,18 +23,28 @@ export class SpawnSphereNode extends GPUComputeNode {
       this.origin[1],
       this.origin[2],
       this.radius,
+      this.baseOpacity,
+      0,
+      0,
+      0,
+      // padding to satisfy 64-byte uniform minimum (16 floats)
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      // extra padding to satisfy 80-byte uniform minimum (20 floats)
+      0, 0, 0, 0,
     ]);
     ctx.queue.writeBuffer(this.paramBuffer, 0, params);
   }
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
-      size: 4 * 4,
+      size: 4 * 20, // 80 bytes (align to min uniform binding size)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
+    this.baseOpacity = ctx.baseOpacity;
     this.updateParams(ctx);
 
     const bindGroup = ctx.device.createBindGroup({

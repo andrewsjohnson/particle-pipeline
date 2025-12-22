@@ -81,6 +81,12 @@ async function main() {
   await pipeline.init();
 
   const simState = { paused: false };
+  const updateCanvasSize = () => {
+    canvas.width = canvas.clientWidth * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
+    pipeline.resizeRenderTarget(canvas.width, canvas.height);
+  };
+  updateCanvasSize();
 
   buildControlPanel({
     pipeline,
@@ -89,7 +95,10 @@ async function main() {
       simState.paused = paused;
       last = performance.now();
     },
-    onReset: () => pipeline.resetSimulation(),
+    onReset: () => {
+      updateCanvasSize();
+      pipeline.resetSimulation();
+    },
     onSaveExr: async () => {
       const { width, height, data } = await pipeline.readHDRTexture();
       const flipped = flipRows(data, width, height);

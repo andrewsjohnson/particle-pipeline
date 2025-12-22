@@ -26,6 +26,8 @@ export class Pipeline {
     renderTextureWidth: number;
     renderTextureHeight: number;
 
+    baseOpacity: number;
+
     frameIndex = 0;
     private nodeListeners: Array<() => void> = [];
     private initialized = false;
@@ -38,6 +40,7 @@ export class Pipeline {
         this.device = device;
         this.ctx = ctx;
         this.particleCount = opts.particleCount;
+        this.baseOpacity = 0.0002;
         this.renderTextureFormat = opts.particleTextureFormat;
         // The accumulation target renders at 2x resolution for better quality
         this.renderTextureWidth = opts.renderWidth * 2;
@@ -87,6 +90,31 @@ export class Pipeline {
         const newIdx = idx + direction;
         if (newIdx < 0 || newIdx >= arr.length) return;
         [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+        this._emitNodesChanged();
+    }
+
+    /**
+     * Replace the current compute/render node lists with new ones.
+     * If the pipeline was already initialized, the new nodes are initialized immediately.
+     * Emits a nodes-changed event and resets accumulation frame index.
+     */
+    async setNodes(computeNodes: GPUComputeNode[], renderNodes: GPURenderNode[]) {
+        // Init first so the currently running frame continues using the old nodes
+        // until the new ones are fully ready. This avoids transient undefined buffers.
+        if (this.initialized) {
+            const ctx = this._contextStatic();
+            for (const node of [...computeNodes, ...renderNodes]) {
+                await node.init(this.device, ctx);
+            }
+        }
+
+        this.computeNodes = computeNodes;
+        this.renderNodes = renderNodes;
+
+        if (this.initialized) {
+            // Start accumulation over after topology/params change
+            this.frameIndex = 0;
+        }
         this._emitNodesChanged();
     }
 
@@ -145,6 +173,7 @@ export class Pipeline {
             particleCount: this.particleCount,
             renderWidth: this.ctx.canvas.width,
             renderHeight: this.ctx.canvas.height,
+            baseOpacity: this.baseOpacity,
 
             // Persistent offscreen HDR accumulation texture
             particleRenderTarget: this.renderTextureView,
@@ -182,6 +211,36 @@ export class Pipeline {
         this.frameIndex++;
     }
 
+    /**
+     * Resize the HDR accumulation target to match a new render size (canvas size).
+     * Also resets the accumulation frameIndex so the next frame clears properly.
+     */
+    resizeRenderTarget(renderWidth: number, renderHeight: number) {
+        const targetWidth = renderWidth * 2;
+        const targetHeight = renderHeight * 2;
+
+        const sameSize =
+            targetWidth === this.renderTextureWidth &&
+            targetHeight === this.renderTextureHeight;
+        if (sameSize) return;
+
+        try { this.renderTexture?.destroy?.(); } catch (err) { console.warn(err); }
+
+        this.renderTextureWidth = targetWidth;
+        this.renderTextureHeight = targetHeight;
+
+        this.renderTexture = this.device.createTexture({
+            size: { width: targetWidth, height: targetHeight },
+            format: this.renderTextureFormat,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+            sampleCount: 1,
+        });
+        this.renderTextureView = this.renderTexture.createView();
+
+        // Reset accumulation since dimensions changed
+        this.frameIndex = 0;
+    }
+
     /** Recreate particle buffers and restart frame counter (does not touch node params/UI). */
     resetSimulation() {
         const bufferSize = this.particleCount * PARTICLE_SIZE;
@@ -197,6 +256,22 @@ export class Pipeline {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
+        this.frameIndex = 0;
+    }
+
+    /** Change particle count, recreate buffers, and reset accumulation. */
+    setParticleCount(count: number) {
+        const clamped = Math.max(1, Math.floor(count));
+        if (clamped === this.particleCount) return;
+        this.particleCount = clamped;
+        this.resetSimulation();
+    }
+
+    /** Update base opacity (alpha multiplier stored on particles) and restart accumulation. */
+    setBaseOpacity(opacity: number) {
+        const clamped = Math.max(0, opacity);
+        this.baseOpacity = clamped;
+        // Reset accumulation to avoid mixing states across opacity changes
         this.frameIndex = 0;
     }
 
