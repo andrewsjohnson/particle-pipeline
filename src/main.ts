@@ -11,7 +11,7 @@ import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
 import { MinVelKillNode } from "./nodes/minVelKill.ts";
 import { OpacityScaleNode } from "./nodes/opacityScale.ts";
-import { Pane } from "tweakpane";
+import { buildControlPanel } from "./ui/controlPanel.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -80,35 +80,20 @@ async function main() {
 
   await pipeline.init();
 
-  const pane = new Pane({ title: "Particle Pipeline" });
   const simState = { paused: false };
-  (pane as any)
-    .addBinding(simState, "paused", { label: "Pause Simulation" })
-    .on("change", (ev: any) => {
-      simState.paused = ev.value;
-      last = performance.now(); // avoid large dt on resume
-    });
-  const resetBtn = (pane as any).addBlade({
-    view: "button",
-    label: "Sim",
-    title: "Reset Simulation",
-  });
-  resetBtn?.on("click", () => {
-    pipeline.resetSimulation();
-  });
 
-  const saveExrBtn = (pane as any).addBlade({
-    view: "button",
-    label: "Capture",
-    title: "Save EXR (float)",
-  });
-  saveExrBtn?.on("click", async () => {
-    try {
+  buildControlPanel({
+    pipeline,
+    simState,
+    onPauseChange: (paused) => {
+      simState.paused = paused;
+      last = performance.now();
+    },
+    onReset: () => pipeline.resetSimulation(),
+    onSaveExr: async () => {
       const { width, height, data } = await pipeline.readHDRTexture();
       const flipped = flipRows(data, width, height);
-
       const exrBytes = encodeEXR(flipped, width, height);
-
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const exrBuf = new ArrayBuffer(exrBytes.byteLength);
       new Uint8Array(exrBuf).set(exrBytes);
@@ -122,25 +107,9 @@ async function main() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      console.log(
-        "Saved EXR frame:",
-        a.download,
-        "bytes:",
-        exrBytes.byteLength
-      );
-    } catch (err) {
-      console.error("Failed to save EXR frame", err);
-      alert("Failed to save EXR frame. Check console for details.");
-    }
-  });
-
-  const saveHdrBtn = (pane as any).addBlade({
-    view: "button",
-    label: "Capture",
-    title: "Save HDR (Radiance .hdr)",
-  });
-  saveHdrBtn?.on("click", async () => {
-    try {
+      console.log("Saved EXR frame:", a.download, "bytes:", exrBytes.byteLength);
+    },
+    onSaveHdr: async () => {
       const { width, height, data } = await pipeline.readHDRTexture();
       const hdrBytes = encodeRGBE(flipRows(data, width, height), width, height);
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -162,38 +131,8 @@ async function main() {
         "bytes:",
         hdrBytes.byteLength
       );
-    } catch (err) {
-      console.error("Failed to save HDR frame (.hdr)", err);
-      alert("Failed to save HDR frame. Check console for details.");
-    }
+    },
   });
-
-  // --- Node Controls ----------------------------------------------------
-  const nodesRoot = (pane as any).addFolder({ title: "Nodes" });
-  let nodeFolders: any[] = [];
-  const rebuildNodeUI = () => {
-    nodeFolders.forEach((f) => f?.dispose?.());
-    nodeFolders = [];
-
-    const addList = (list: any[], group: string) => {
-      list.forEach((node, i) => {
-        const folder = (nodesRoot as any).addFolder({
-          title: `${group} ${i + 1}: ${node.constructor.name}`,
-          expanded: false,
-        });
-        nodeFolders.push(folder);
-        if (typeof node.buildUI === "function") {
-          node.buildUI(folder);
-        }
-      });
-    };
-
-    addList(pipeline.computeNodes, "Compute");
-    addList(pipeline.renderNodes, "Render");
-  };
-
-  pipeline.onNodesChanged(rebuildNodeUI);
-  rebuildNodeUI();
 
   function encodeRGBE(
     data: Float32Array,

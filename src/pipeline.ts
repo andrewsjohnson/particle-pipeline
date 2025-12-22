@@ -28,6 +28,7 @@ export class Pipeline {
 
     frameIndex = 0;
     private nodeListeners: Array<() => void> = [];
+    private initialized = false;
 
     get currentParticleBuffer() {
         return this.particleA;
@@ -63,12 +64,29 @@ export class Pipeline {
         this._emitNodesChanged();
     }
 
+    async addNodeAndInit(node: GPUNode) {
+        this.addNode(node);
+        if (this.initialized) {
+            await node.init(this.device, this._contextStatic());
+        }
+    }
+
     removeNode(node: GPUNode) {
         if (node.stage === "compute") {
             this.computeNodes = this.computeNodes.filter((n) => n !== node);
         } else if (node.stage === "render") {
             this.renderNodes = this.renderNodes.filter((n) => n !== node);
         }
+        this._emitNodesChanged();
+    }
+
+    moveNode(node: GPUNode, direction: number) {
+        const arr = node.stage === "compute" ? this.computeNodes : this.renderNodes;
+        const idx = arr.indexOf(node as any);
+        if (idx < 0) return;
+        const newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= arr.length) return;
+        [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
         this._emitNodesChanged();
     }
 
@@ -94,6 +112,7 @@ export class Pipeline {
         for (const node of this.renderNodes) {
             await node.init(this.device, this._contextStatic());
         }
+        this.initialized = true;
     }
 
     /**
