@@ -7,9 +7,11 @@ struct Particle {
     mass : f32,
     age : f32,
     lifetime : f32,
+    opacityScale : f32,
     alive : u32,
     needsRespawn : u32,
     id : u32,
+    _pad2 : f32,
 };
   
 struct ParticleBuffer { particles : array<Particle> };
@@ -76,7 +78,8 @@ fn vs_main(
     o.pos = params.projection * vBillboard;
 
     o.uv = q * 0.5 + 0.5;
-    o.col = vec4<f32>(p.color.rgb * p.color.a, p.color.a);
+    let alpha = p.color.a * p.opacityScale;
+    o.col = vec4<f32>(p.color.rgb * alpha, alpha);
     return o;
 }
 

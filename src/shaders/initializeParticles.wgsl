@@ -7,9 +7,11 @@ struct Particle {
     mass : f32,
     age : f32,
     lifetime : f32,
+    opacityScale : f32,
     alive : u32,
     needsRespawn : u32,
     id : u32,
+    _pad2 : f32,
 };
 
 struct ParticleBuffer { particles : array<Particle> };
@@ -38,6 +40,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     p.mass     = 1.0;
     p.age      = 0.0;
     p.lifetime = 100.0;
+    p.opacityScale = 0.0;
     p.alive    = 1u;
     p.id       = idx;
     p.needsRespawn = 1u;

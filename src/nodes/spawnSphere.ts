@@ -7,6 +7,15 @@ export class SpawnSphereNode extends GPUComputeNode {
   origin: [number, number, number] = [0, 0, 0];
   radius: number = 1.0;
 
+  buildUI(pane: any) {
+    const p = pane as any;
+    const originObj = { x: this.origin[0], y: this.origin[1], z: this.origin[2] };
+    p.addBinding(originObj, "x", { label: "Origin X", min: -10, max: 10 }).on("change", (ev: any) => this.origin[0] = ev.value);
+    p.addBinding(originObj, "y", { label: "Origin Y", min: -10, max: 10 }).on("change", (ev: any) => this.origin[1] = ev.value);
+    p.addBinding(originObj, "z", { label: "Origin Z", min: -10, max: 10 }).on("change", (ev: any) => this.origin[2] = ev.value);
+    p.addBinding(this, "radius", { label: "Radius", min: 0.01, max: 10 });
+  }
+
   updateParams(ctx: any) {
     const params = new Float32Array([
       this.origin[0],

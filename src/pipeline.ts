@@ -22,8 +22,12 @@ export class Pipeline {
 
     renderTexture!: GPUTexture;
     renderTextureView!: GPUTextureView;
+    renderTextureFormat: GPUTextureFormat;
+    renderTextureWidth: number;
+    renderTextureHeight: number;
 
     frameIndex = 0;
+    private nodeListeners: Array<() => void> = [];
 
     get currentParticleBuffer() {
         return this.particleA;
@@ -33,11 +37,15 @@ export class Pipeline {
         this.device = device;
         this.ctx = ctx;
         this.particleCount = opts.particleCount;
+        this.renderTextureFormat = opts.particleTextureFormat;
+        // The accumulation target renders at 2x resolution for better quality
+        this.renderTextureWidth = opts.renderWidth * 2;
+        this.renderTextureHeight = opts.renderHeight * 2;
         
         // Persistent offscreen float texture (accumulation)
         this.renderTexture = device.createTexture({
-            size: { width: opts.renderWidth * 2, height: opts.renderHeight * 2 },
-            format: opts.particleTextureFormat,
+            size: { width: this.renderTextureWidth, height: this.renderTextureHeight },
+            format: this.renderTextureFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
             sampleCount: 1,
         });
@@ -52,6 +60,20 @@ export class Pipeline {
         } else if (node.stage === "render") {
             this.renderNodes.push(node as GPURenderNode);
         }
+        this._emitNodesChanged();
+    }
+
+    removeNode(node: GPUNode) {
+        if (node.stage === "compute") {
+            this.computeNodes = this.computeNodes.filter((n) => n !== node);
+        } else if (node.stage === "render") {
+            this.renderNodes = this.renderNodes.filter((n) => n !== node);
+        }
+        this._emitNodesChanged();
+    }
+
+    onNodesChanged(cb: () => void) {
+        this.nodeListeners.push(cb);
     }
 
     async init() {
@@ -139,5 +161,81 @@ export class Pipeline {
     
         this.device.queue.submit([encoder.finish()]);
         this.frameIndex++;
+    }
+
+    /** Recreate particle buffers and restart frame counter (does not touch node params/UI). */
+    resetSimulation() {
+        const bufferSize = this.particleCount * PARTICLE_SIZE;
+        try { this.particleA?.destroy?.(); } catch (err) { console.warn(err); }
+        try { this.particleB?.destroy?.(); } catch (err) { console.warn(err); }
+
+        this.particleA = this.device.createBuffer({
+            size: bufferSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        this.particleB = this.device.createBuffer({
+            size: bufferSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.frameIndex = 0;
+    }
+
+    private _emitNodesChanged() {
+        for (const cb of this.nodeListeners) {
+            try {
+                cb();
+            } catch (err) {
+                console.error("node listener error", err);
+            }
+        }
+    }
+
+    /**
+     * Read back the HDR accumulation texture as a tightly-packed Float32Array.
+     * Returns width/height plus RGBA float data in row-major order.
+     */
+    async readHDRTexture() {
+        const width = this.renderTextureWidth;
+        const height = this.renderTextureHeight;
+        const bytesPerPixel = 16; // rgba32float
+        const unpaddedBytesPerRow = width * bytesPerPixel;
+        const paddedBytesPerRow = Math.ceil(unpaddedBytesPerRow / 256) * 256;
+        const paddedSize = paddedBytesPerRow * height;
+
+        const readBuffer = this.device.createBuffer({
+            size: paddedSize,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+
+        const encoder = this.device.createCommandEncoder();
+        encoder.copyTextureToBuffer(
+            { texture: this.renderTexture },
+            {
+                buffer: readBuffer,
+                bytesPerRow: paddedBytesPerRow,
+                rowsPerImage: height,
+            },
+            { width, height, depthOrArrayLayers: 1 }
+        );
+        this.device.queue.submit([encoder.finish()]);
+
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const mapped = readBuffer.getMappedRange();
+
+        const floats = new Float32Array(width * height * 4);
+        const mappedBytes = new Uint8Array(mapped);
+
+        for (let y = 0; y < height; y++) {
+            const rowOffset = y * paddedBytesPerRow;
+            const row = mappedBytes.slice(rowOffset, rowOffset + unpaddedBytesPerRow);
+            const rowFloats = new Float32Array(row.buffer);
+            floats.set(rowFloats, y * width * 4);
+        }
+
+        readBuffer.unmap();
+        readBuffer.destroy();
+
+        return { width, height, data: floats };
     }
 }

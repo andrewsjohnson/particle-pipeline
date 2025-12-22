@@ -17,14 +17,12 @@ export async function readGPUBuffer(device: GPUDevice, src: GPUBuffer, size: num
     return arrayBuffer;
 }
 
-const PARTICLE_STRIDE_BYTES = 80;
-const PARTICLE_STRIDE_FLOATS = PARTICLE_STRIDE_BYTES / 4; // 16
+const PARTICLE_STRIDE_BYTES = PARTICLE_SIZE;
+const PARTICLE_STRIDE_FLOATS = PARTICLE_STRIDE_BYTES / 4;
 
 export function parseParticles(buf: ArrayBuffer, count: number) {
   const f32 = new Float32Array(buf);
-  const u32 = new Uint32Array(buf);
-
-  const out: any[] = [];
+  // Intentionally only using f32 view for now; expand if needed for debugging.
 
   const positions = [];
 

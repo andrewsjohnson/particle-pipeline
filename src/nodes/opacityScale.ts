@@ -1,17 +1,16 @@
-import { GPUComputeNode } from "./kinds/compute-node.ts";
+import { GPUComputeNode } from "./kinds/compute-node";
 
-export class SetSpawnMassNode extends GPUComputeNode {
-  static shaderPath: string = "/src/shaders/setSpawnMass.wgsl";
+export class OpacityScaleNode extends GPUComputeNode {
+  static shaderPath: string = "/src/shaders/opacityScale.wgsl";
   paramBuffer!: GPUBuffer;
-  minMass: number = 0.1;
-  maxMass: number = 1.0;
+
+  fadeInTime: number = 10.0; // seconds to reach full opacity
+  power: number = 2.0; // curve shaping exponent (1 = linear)
 
   buildUI(pane: any) {
     const p = pane as any;
-    p.addBinding(this, "minMass", { label: "Min Mass", min: 0, max: 10 });
-    p.addBinding(this, "maxMass", { label: "Max Mass", min: 0, max: 10 }).on("change", () => {
-      if (this.maxMass < this.minMass) this.maxMass = this.minMass;
-    });
+    p.addBinding(this, "fadeInTime", { label: "Fade In (s)", min: 0, max: 30 });
+    p.addBinding(this, "power", { label: "Power", min: 0.5, max: 8 });
   }
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
@@ -23,8 +22,8 @@ export class SetSpawnMassNode extends GPUComputeNode {
 
   updateParams(ctx: any) {
     const params = new Float32Array([
-      this.minMass,
-      this.maxMass,
+      this.fadeInTime,
+      this.power,
       0,
       0,
     ]);
@@ -51,3 +50,4 @@ export class SetSpawnMassNode extends GPUComputeNode {
     return true;
   }
 }
+

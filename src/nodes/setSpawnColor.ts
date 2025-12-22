@@ -4,13 +4,39 @@ export class SetSpawnColorNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/setSpawnColor.wgsl";
   paramBuffer!: GPUBuffer;
 
-  saturation: number = 1.5;
-  offset: number = 1.1;
-  scale: number = 2.2;
+  saturation: number = 1.0;
+  offset: number = 0.75;
+  scale: number = 2.0;
   a: [number, number, number] = [0.5, 0.5, 0.5];
   b: [number, number, number] = [0.5, 0.5, 0.5];
   c: [number, number, number] = [1.0, 1.0, 1.0];
-  d: [number, number, number] = [0.0, 0.0, 0.0];
+  d: [number, number, number] = [0.3, 0.0, -0.3];
+
+  buildUI(pane: any) {
+    const p = pane as any;
+    p.addBinding(this, "saturation", { label: "Saturation", min: 0, max: 2 });
+    p.addBinding(this, "offset", { label: "Offset", min: -2, max: 2 });
+    p.addBinding(this, "scale", { label: "Scale", min: 0, max: 4 });
+
+    const bindVec3 = (label: string, target: [number, number, number]) => {
+      const obj = { vec: { x: target[0], y: target[1], z: target[2] } };
+      p.addBinding(obj, "vec", {
+        label,
+        x: { min: -2, max: 2 },
+        y: { min: -2, max: 2 },
+        z: { min: -2, max: 2 },
+      }).on("change", (ev: any) => {
+        target[0] = ev.value.x;
+        target[1] = ev.value.y;
+        target[2] = ev.value.z;
+      });
+    };
+
+    bindVec3("A", this.a);
+    bindVec3("B", this.b);
+    bindVec3("C", this.c);
+    bindVec3("D", this.d);
+  }
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({

@@ -6,6 +6,11 @@ export class MinVelKillNode extends GPUComputeNode {
 
   minVel: number = 0.1;
 
+  buildUI(pane: any) {
+    const p = pane as any;
+    p.addBinding(this, "minVel", { label: "Min Velocity", min: 0, max: 5 });
+  }
+
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
       size: 4 * 1,

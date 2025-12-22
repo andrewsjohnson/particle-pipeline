@@ -7,9 +7,11 @@ struct Particle {
     mass : f32,
     age : f32,
     lifetime : f32,
+    opacityScale : f32,
     alive : u32,
     needsRespawn : u32,
     id : u32,
+    _pad2 : f32,
 };
   
 struct ParticleBuffer { particles : array<Particle> };
@@ -46,7 +48,8 @@ fn vs_main(@builtin(vertex_index) i : u32) -> VSOut {
     // Apply full camera transform
     o.pos = params.mvp * world;
     // Premultiply RGB by alpha so additive blending respects particle opacity
-    o.col = vec4<f32>(p.color.rgb * p.color.a, p.color.a);
+    let alpha = p.color.a * p.opacityScale;
+    o.col = vec4<f32>(p.color.rgb * alpha, alpha);
     return o;
 }
 

@@ -7,9 +7,11 @@ struct Particle {
     mass : f32,
     age : f32,
     lifetime : f32,
+    opacityScale : f32,
     alive : u32,
     needsRespawn : u32,
     id : u32,
+    _pad2 : f32,
 };
 
 struct ParticleBuffer { particles : array<Particle> };

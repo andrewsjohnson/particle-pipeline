@@ -16,11 +16,11 @@ const PARTICLE_FIELDS: ParticleField[] = [
   { name: "mass", wgslType: "f32", size: 4 },
   { name: "age", wgslType: "f32", size: 4 },
   { name: "lifetime", wgslType: "f32", size: 4 },
+  { name: "opacityScale", wgslType: "f32", size: 4 },
   { name: "alive", wgslType: "u32", size: 4 },
   { name: "needsRespawn", wgslType: "u32", size: 4 },
   { name: "id", wgslType: "u32", size: 4 },
-  { name: "padding", wgslType: "f32", size: 4 },
-  { name: "padding2", wgslType: "f32", size: 4 },
+  { name: "_pad2", wgslType: "f32", size: 4 },
 ];
 
 export const PARTICLE_SIZE = PARTICLE_FIELDS.reduce((sum, field) => sum + field.size, 0);

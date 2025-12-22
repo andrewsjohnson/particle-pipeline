@@ -47,6 +47,15 @@ export abstract class GPUNode {
      * should not be swapped after this node.
      */
     abstract record(encoder: GPUCommandEncoder, ctx: any): boolean | void;
+
+    /**
+     * Optional UI hook for nodes to expose tweakable parameters.
+     * Receives a pane/folder-like object (Tweakpane API).
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    buildUI(_pane: any): void {
+        // default: no controls
+    }
 }
 
 export type GPUNodeStage = "compute" | "render";
