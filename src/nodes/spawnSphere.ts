@@ -1,39 +1,59 @@
-import { loadShaderModule } from "../shaders/loadShader.ts";
-import { GPUNode, type GPUNodeStage } from "./base.ts";
+import { GPUComputeNode } from "./kinds/compute-node.ts";
 
-export class SpawnSphereNode extends GPUNode {
-  stage: GPUNodeStage = "compute";
-  private pipeline!: GPUComputePipeline;
-  private sphereBuffer!: GPUBuffer;
+export class SpawnSphereNode extends GPUComputeNode {
+  static shaderPath: string = "/src/shaders/spawnSphere.wgsl";
+  paramBuffer!: GPUBuffer;
 
-  async init(device: GPUDevice, ctx: any) {
-    // Load WGSL shader
-    const module = await loadShaderModule(device, "/src/shaders/spawnSphere.wgsl");
+  origin: [number, number, number] = [0, 0, 0];
+  radius: number = 1.0;
+  baseOpacity: number = 0.0002;
+  centerWeight: number = 0.75;
 
-    // Create compute pipeline
-    this.pipeline = device.createComputePipeline({
-      layout: "auto",
-      compute: {
-        module,
-        entryPoint: "main",
-      },
+  buildUI(pane: any) {
+    const p = pane as any;
+    const originObj = { x: this.origin[0], y: this.origin[1], z: this.origin[2] };
+    p.addBinding(originObj, "x", { label: "Origin X", min: -10, max: 10 }).on("change", (ev: any) => this.origin[0] = ev.value);
+    p.addBinding(originObj, "y", { label: "Origin Y", min: -10, max: 10 }).on("change", (ev: any) => this.origin[1] = ev.value);
+    p.addBinding(originObj, "z", { label: "Origin Z", min: -10, max: 10 }).on("change", (ev: any) => this.origin[2] = ev.value);
+    p.addBinding(this, "radius", { label: "Radius", min: 0.01, max: 10 });
+    p.addBinding(this, "centerWeight", {
+      label: "Center Weight",
+      min: 0.1,
+      max: 4.0,
+      step: 0.05,
     });
+  }
 
-    this.sphereBuffer = device.createBuffer({
-      size: 4 * 4 * 4, // SpawnSphere struct
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+  updateParams(ctx: any) {
+    const params = new Float32Array([
+      this.origin[0],
+      this.origin[1],
+      this.origin[2],
+      this.radius,
+      this.baseOpacity,
+      this.centerWeight,
+      // padding to satisfy alignment before next vec3/vec4 fields
+      0,
+      0,
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      // extra padding to satisfy 80-byte uniform minimum (20 floats)
+      0, 0, 0, 0,
+    ]);
+    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+  }
+
+  onPipelineReady(device: GPUDevice, _ctx: any) {
+    this.paramBuffer = device.createBuffer({
+      size: 4 * 20, // 80 bytes (align to min uniform binding size)
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    ctx.queue.writeBuffer(this.sphereBuffer, 0, new Float32Array([0, 0, 0, 1]));
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    // Run one time only
-    // if (ctx.frameIndex !== 0) return false;
+    this.baseOpacity = ctx.baseOpacity;
+    this.updateParams(ctx);
 
-    // Bind **particleSrc**, NOT particleDst.
-    // Spawn is the origin of truth.
-    // particleSrc -> integrator -> particleDst -> ping-pong
     const bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [
@@ -47,7 +67,7 @@ export class SpawnSphereNode extends GPUNode {
         },
         {
           binding: 2,
-          resource: { buffer: this.sphereBuffer },
+          resource: { buffer: this.paramBuffer },
         },
       ],
     });
@@ -55,9 +75,7 @@ export class SpawnSphereNode extends GPUNode {
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, bindGroup);
-
-    const workgroups = Math.ceil(ctx.particleCount / 256);
-    pass.dispatchWorkgroups(workgroups);
+    pass.dispatchWorkgroups(Math.ceil(ctx.particleCount / 256));
     pass.end();
     return true;
   }

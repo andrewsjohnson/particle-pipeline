@@ -15,7 +15,6 @@ struct Particle {
 };
   
 struct ParticleBuffer { particles : array<Particle> };
-  
 
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
@@ -23,7 +22,12 @@ var<storage, read> src : ParticleBuffer;
 @group(0) @binding(1)
 var<storage, read_write> dst : ParticleBuffer;
 
-struct Params { dt : f32 };
+struct Params {
+    fadeInTime : f32,
+    power : f32,
+    _pad0 : f32,
+    _pad1 : f32,
+};
 @group(0) @binding(2)
 var<uniform> P : Params;
 
@@ -36,27 +40,16 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     let s = src.particles[i];
     var d = s;
 
-    // if (s.alive == 0u) {
-    //     dst.particles[i] = s;
-    //     return;
-    // }
-
-    // --- UPDATED POSITION (heavier particles move proportionally slower) ---
-    let safeMass = max(s.mass, 0.001);
-    let massFactor = 1.0 / safeMass;
-    d.position = s.position + s.velocity * massFactor * P.dt;
-
-    // --- PRESERVE VELOCITY ---
-    d.velocity = s.velocity;
-
-    // --- UPDATE AGE ---
-    d.age = s.age + P.dt;
-
-    // OPTIONAL LIFETIME KILL
-    if (d.age > d.lifetime) {
-        d.alive = 0u;
-        d.needsRespawn = 1u;
+    if (s.alive == 0u) {
+        d.opacityScale = 0.0;
+        dst.particles[i] = d;
+        return;
     }
+
+    let fade = max(P.fadeInTime, 0.0001);
+    let t = clamp(s.age / fade, 0.0, 1.0);
+    d.opacityScale = pow(t, P.power);
 
     dst.particles[i] = d;
 }
+

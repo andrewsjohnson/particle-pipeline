@@ -1,6 +1,24 @@
 ////////////////////////////////////////////////////////////
 // PARTICLE DATA
 ////////////////////////////////////////////////////////////
+/// 
+struct Particle {
+    position : vec3<f32>,
+    _pad0 : f32,
+    velocity : vec3<f32>,
+    _pad1 : f32,
+    color : vec4<f32>,
+    mass : f32,
+    age : f32,
+    lifetime : f32,
+    opacityScale : f32,
+    alive : u32,
+    needsRespawn : u32,
+    id : u32,
+    _pad2 : f32,
+};
+
+struct ParticleBuffer { particles : array<Particle> };
 
 ////////////////////////////////////////////////////////////
 // SPAWN INPUT
@@ -9,6 +27,12 @@
 struct SpawnSphere {
     origin : vec3<f32>,
     radius : f32,
+    baseOpacity : f32,
+    centerWeight : f32,
+    _pad0 : vec2<f32>,
+    _pad1 : vec4<f32>,
+    _pad2 : vec4<f32>,
+    _pad3 : vec4<f32>,
 };
 
 // Source Buffer
@@ -59,11 +83,12 @@ fn random_unit_vector(r0: f32, r1: f32) -> vec3<f32> {
 }
 
 ////////////////////////////////////////////////////////////
-// VOLUME-CENTERED DISTRIBUTION: pow(rng, 1.5)
+// Adjustable center weighting: >1 biases toward center, <1 toward edges
 ////////////////////////////////////////////////////////////
 
 fn sample_radius(r: f32) -> f32 {
-    return pow(r, 1.5);
+    let weight = max(sphere.centerWeight, 0.001);
+    return pow(r, weight);
 }
 
 
@@ -98,6 +123,8 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     let dist  = sphere.radius * scale;
 
     p.age = 0.0;
+    p.opacityScale = 0.0;
+    p.color.a = sphere.baseOpacity;
     p.position = sphere.origin + dir * dist;
     p.needsRespawn = 0u;
     p.alive = 1u;

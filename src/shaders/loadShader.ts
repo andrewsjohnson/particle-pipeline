@@ -1,35 +1,48 @@
-import { PARTICLE_STRUCT_WGSL } from "../particles/particleLayout.ts";
+export class HotShader {
+  device: GPUDevice;
+  path: string;
+  module: GPUShaderModule | null = null;
+  listeners = new Set<(m: GPUShaderModule) => void>();
+  cachedSource: string = "";
 
-type LoadShaderOptions = {
-  /**
-   * Some shaders (fullscreen blits, etc.) might not need the particle struct.
-   * Defaults to true to minimize boilerplate for compute nodes.
-   */
-  includeParticleStruct?: boolean;
-};
-
-const shaderSourceCache = new Map<string, Promise<string>>();
-
-async function fetchShaderSource(path: string) {
-  if (!shaderSourceCache.has(path)) {
-    shaderSourceCache.set(
-      path,
-      fetch(path).then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load shader "${path}": ${response.status}`);
-        }
-        return response.text();
-      }),
-    );
+  constructor(device: GPUDevice, path: string) {
+    this.device = device;
+    this.path = path;
   }
 
-  return shaderSourceCache.get(path)!;
+  async load() {
+    const code = await fetch(this.path).then(r => r.text());
+    this.cachedSource = code
+    
+    this.module = this.device.createShaderModule({ code });
+    this.listeners.forEach(cb => cb(this.module!));
+  }
+
+  onReload(cb: (m: GPUShaderModule) => void) {
+    this.listeners.add(cb);
+  }
 }
 
-export async function loadShaderModule(device: GPUDevice, path: string, options: LoadShaderOptions = {}) {
-  const source = await fetchShaderSource(path);
-  const includeParticleStruct = options.includeParticleStruct ?? true;
-  const code = includeParticleStruct ? `${PARTICLE_STRUCT_WGSL}\n${source}` : source;
-  return device.createShaderModule({ code });
+const hotShaders = new Set<HotShader>();
+
+export async function loadShaderModule(
+  device: GPUDevice,
+  path: string,
+) {
+  const hs = new HotShader(device, path);
+
+  hotShaders.add(hs);
+  await hs.load();
+  return hs;
 }
 
+if (import.meta.hot) {
+  import.meta.hot.on("vite:beforeUpdate", async (payload: any) => {
+    for (const shader of hotShaders) {
+      if (payload.updates.some((u: any) => u.path.endsWith(shader.path))) {
+        console.log("%c🔥 Reload WGSL:", "color:orange", shader.path);
+        await shader.load();
+      }
+    }
+  });
+}

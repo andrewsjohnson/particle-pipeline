@@ -1,5 +1,23 @@
 // This is a base compute shader that can be used as a starting point for other compute shaders.
 
+struct Particle {
+    position : vec3<f32>,
+    _pad0 : f32,
+    velocity : vec3<f32>,
+    _pad1 : f32,
+    color : vec4<f32>,
+    mass : f32,
+    age : f32,
+    lifetime : f32,
+    opacityScale : f32,
+    alive : u32,
+    needsRespawn : u32,
+    id : u32,
+    _pad2 : f32,
+};
+
+struct ParticleBuffer { particles : array<Particle> };
+
 // Source Buffer
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
@@ -26,18 +44,8 @@ struct Params {
 
 // Uniforms Binding
 @group(0) @binding(2)
-var<uniform> P : Params;
+var<uniform> params : Params;
 
-
-/* UTIL FUNCTIONS GO HERE */
-fn getParticleDistFromOrigin(particle: Particle) -> f32 {
-    return length(particle.position);
-}
-
-fn util() {
-    /* DO STUFF */
-}
-  
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
@@ -53,16 +61,16 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     // change particle attributes if age is 0
     if (particle.age == 0.0 && particle.alive == 1u) {
-        var dist = getParticleDistFromOrigin(particle);
-        var rangeOffset = P.saturation * 0.1f;
+        var dist = length(particle.position);
+        var rangeOffset = params.saturation * 0.1f;
         dist /= 2.0f;
-        dist *= P.scale;
-        dist += P.offset;
+        dist *= params.scale;
+        dist += params.offset;
 
-        var d = vec3<f32>(P.d.x - rangeOffset, P.d.y, P.d.z + rangeOffset);
+        var d = vec3<f32>(params.d.x - rangeOffset, params.d.y, params.d.z + rangeOffset);
 
-        particle.color = vec4<f32>(P.a + P.b * cos(6.28318 * (P.c * dist + d)), particle.color.a);
-        // particle.color = vec4<f32>(P.saturation, P.saturation, P.saturation, 1.0);
+        particle.color = vec4<f32>(params.a + params.b * cos(6.28318 * (params.c * dist + d)), particle.color.a);
+        // particle.color = vec4<f32>(params.saturation, params.saturation, params.saturation, 1.0);
     }
     // write particle to destination buffer
     // note: you *must* write to the destination buffer

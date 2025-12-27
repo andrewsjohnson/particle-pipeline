@@ -1,3 +1,21 @@
+struct Particle {
+    position : vec3<f32>,
+    _pad0 : f32,
+    velocity : vec3<f32>,
+    _pad1 : f32,
+    color : vec4<f32>,
+    mass : f32,
+    age : f32,
+    lifetime : f32,
+    opacityScale : f32,
+    alive : u32,
+    needsRespawn : u32,
+    id : u32,
+    _pad2 : f32,
+};
+
+struct ParticleBuffer { particles : array<Particle> };
+  
 // Source Buffer
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
@@ -5,6 +23,14 @@ var<storage, read> src : ParticleBuffer;
 // Destination Buffer
 @group(0) @binding(1)
 var<storage, read_write> dst : ParticleBuffer;
+
+struct InitParams {
+    baseOpacity : f32,
+    _pad0 : vec3<f32>,
+};
+
+@group(0) @binding(2)
+var<uniform> params : InitParams;
 
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
@@ -18,10 +44,11 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
     p.position = vec3<f32>(0.0);
     p.velocity = vec3<f32>(0.0);
-    p.color    = vec4<f32>(1.0,1.0,1.0,0.001);
+    p.color    = vec4<f32>(1.0,1.0,1.0, params.baseOpacity);
     p.mass     = 1.0;
     p.age      = 0.0;
     p.lifetime = 100.0;
+    p.opacityScale = 0.0;
     p.alive    = 1u;
     p.id       = idx;
     p.needsRespawn = 1u;

@@ -3,25 +3,47 @@ import { multiplyMat4 } from "../utils/math.ts";
 import { lookAt } from "../utils/perspectiveMatrix.ts";
 import { GPURenderNode } from "./kinds/render-node.ts";
 
-export type RenderParticlesParams = {
-  mvp: [
+export type RenderBokehParticlesParams = {
+  view: [
     number, number, number, number,
     number, number, number, number,
     number, number, number, number,
     number, number, number, number,
   ];
+  projection: [
+    number, number, number, number,
+    number, number, number, number,
+    number, number, number, number,
+    number, number, number, number,
+  ];
+  screenSize: [number, number];
+  radius: number;
 }
 
-export class RenderParticlesNode extends GPURenderNode {
-  static shaderPath: string = "/src/shaders/renderParticles.wgsl";
+export class RenderBokehParticlesNode extends GPURenderNode {
+  static shaderPath: string = "/src/shaders/renderBokehParticles.wgsl";
   paramBuffer!: GPUBuffer;
+
+  radius: number = 1.0;
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
-      size: 4 * 16,
+      size: 4 * 16 * 2 + 4 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
   }
+
+  updateParams(ctx: any) {
+    const aspect = ctx.renderWidth / ctx.renderHeight;
+    const proj = perspectiveMatrix(45, aspect, 0.1, 500);
+    const view = lookAt(
+      {x: 5, y: 5, z: 5},
+      {x: 0, y: 0, z: 0},
+      {x: 0, y: 1, z: 0}
+    );
+    const params = new Float32Array([...view, ...proj, ctx.renderWidth, ctx.renderHeight, this.radius, 0]);
+    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+  };
 
   createRenderPipeline(device: GPUDevice, module: GPUShaderModule) {
     return device.createRenderPipeline({
@@ -34,26 +56,13 @@ export class RenderParticlesNode extends GPURenderNode {
           format: "rgba32float",
           blend: {
             color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
-            alpha: { srcFactor: "one", dstFactor: "one" },
+            alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
           },
         }],
       },
-      primitive: { topology: "point-list" },
+      primitive: { topology: "triangle-strip" },
     });
   }
-  
-  updateParams(ctx: any) {
-    const aspect = ctx.renderWidth / ctx.renderHeight;
-    const proj = perspectiveMatrix(45, aspect, 0.1, 500);
-    const view = lookAt(
-      {x: 5, y: 5, z: 5},
-      {x: 0, y: 0, z: 0},
-      {x: 0, y: 1, z: 0}
-    );
-    const mvp = multiplyMat4(proj, view);
-    const params = new Float32Array(mvp);
-    ctx.queue.writeBuffer(this.paramBuffer, 0, mvp);
-  };
 
   record(encoder: GPUCommandEncoder, ctx: any) {
     this.updateParams(ctx);
@@ -80,7 +89,7 @@ export class RenderParticlesNode extends GPURenderNode {
 
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, bindGroup);
-    pass.draw(ctx.particleCount);
+    pass.draw(4, ctx.particleCount);
     pass.end();
   }
 }

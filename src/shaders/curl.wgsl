@@ -1,10 +1,37 @@
+struct Particle {
+  position : vec3<f32>,
+  _pad0 : f32,
+  velocity : vec3<f32>,
+  _pad1 : f32,
+  color : vec4<f32>,
+  mass : f32,
+  age : f32,
+  lifetime : f32,
+  opacityScale : f32,
+  alive : u32,
+  needsRespawn : u32,
+  id : u32,
+  _pad2 : f32,
+};
+
+struct ParticleBuffer { particles : array<Particle> };
+
 @group(0) @binding(0)
 var<storage, read> src : ParticleBuffer;
 
 @group(0) @binding(1)
 var<storage, read_write> dst : ParticleBuffer;
 
-struct Params { dt : f32, fieldScale : f32, strength : f32, eps : f32 };
+struct Params {
+  dt : f32,
+  fieldScale : f32,
+  strength : f32,
+  eps : f32,
+  octaves : f32,
+  lacunarity : f32,
+  gain : f32,
+  _pad0 : f32,
+};
 @group(0) @binding(2)
 var<uniform> P : Params;
 
@@ -51,18 +78,35 @@ fn hash(p : vec3<i32>) -> f32 {
       valueNoise(p + vec3(11.5, 4.2, 8.8))
     );
   }
+
+  fn vectorFieldOctaves(p : vec3<f32>, octaves : i32, lacunarity : f32, gain : f32) -> vec3<f32> {
+    var frequency = 1.0;
+    var amplitude = 1.0;
+    var totalWeight = 0.0;
+    var sum = vec3<f32>(0.0);
+
+    for (var i = 0; i < octaves; i = i + 1) {
+      sum += vectorField(p * frequency) * amplitude;
+      totalWeight += amplitude;
+      frequency *= lacunarity;
+      amplitude *= gain;
+    }
+
+    let denom = max(totalWeight, 0.0001);
+    return sum / denom;
+  }
   
-  fn curlAt(p : vec3<f32>, eps : f32) -> vec3<f32> {
+  fn curlAt(p : vec3<f32>, eps : f32, octaves : i32, lacunarity : f32, gain : f32) -> vec3<f32> {
     let e = vec3<f32>(eps, 0.0, 0.0);
     let f = vec3<f32>(0.0, eps, 0.0);
     let g = vec3<f32>(0.0, 0.0, eps);
   
-    let pX1 = vectorField(p + e);
-    let pX2 = vectorField(p - e);
-    let pY1 = vectorField(p + f);
-    let pY2 = vectorField(p - f);
-    let pZ1 = vectorField(p + g);
-    let pZ2 = vectorField(p - g);
+    let pX1 = vectorFieldOctaves(p + e, octaves, lacunarity, gain);
+    let pX2 = vectorFieldOctaves(p - e, octaves, lacunarity, gain);
+    let pY1 = vectorFieldOctaves(p + f, octaves, lacunarity, gain);
+    let pY2 = vectorFieldOctaves(p - f, octaves, lacunarity, gain);
+    let pZ1 = vectorFieldOctaves(p + g, octaves, lacunarity, gain);
+    let pZ2 = vectorFieldOctaves(p - g, octaves, lacunarity, gain);
   
     let curl = vec3<f32>(
       (pY1.z - pY2.z) - (pZ1.y - pZ2.y),
@@ -82,7 +126,8 @@ fn hash(p : vec3<i32>) -> f32 {
   
     var particle = src.particles[idx];
     let scaledPos = particle.position * P.fieldScale;
-    let curl = curlAt(scaledPos, P.eps);
+    let octaveCount = max(1, i32(P.octaves));
+    let curl = curlAt(scaledPos, P.eps, octaveCount, P.lacunarity, P.gain);
 
     let curlNormalized = normalize(curl);
     particle.velocity = particle.velocity + curlNormalized * P.strength;
