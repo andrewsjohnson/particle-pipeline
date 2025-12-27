@@ -4,6 +4,12 @@ var hdrTex : texture_2d<f32>;
 @group(0) @binding(1)
 var hdrSampler : sampler;
 
+struct Params {
+    applyToneMap : u32, // 1 = tone map & gamma, 0 = passthrough (HDR)
+}
+@group(0) @binding(2)
+var<uniform> params : Params;
+
 struct VSOut {
     @builtin(position) pos: vec4<f32>,
     @location(0) uv: vec2<f32>,
@@ -58,15 +64,17 @@ fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
     var hdr = base; // + bloom * 0.8;
 
     //--- Tone-map (Filmic ACES-ish) -----------------------------------
-    let a = 2.51;
-    let b = 0.03;
-    let c = 2.43;
-    let d = 0.59;
-    let e = 0.14;
-    hdr = (hdr * (a*hdr + b)) / (hdr * (c*hdr + d) + e);
+    if (params.applyToneMap == 1u) {
+        let a = 2.51;
+        let b = 0.03;
+        let c = 2.43;
+        let d = 0.59;
+        let e = 0.14;
+        hdr = (hdr * (a*hdr + b)) / (hdr * (c*hdr + d) + e);
 
-    //--- Gamma ---------------------------------------------------------
-    hdr = pow(hdr, vec3<f32>(1.0/2.2));
+        //--- Gamma ---------------------------------------------------------
+        hdr = pow(hdr, vec3<f32>(1.0/2.2));
+    }
 
     return vec4<f32>(hdr, 1.0);
 }
