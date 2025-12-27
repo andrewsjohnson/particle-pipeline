@@ -7,6 +7,7 @@ export class SpawnSphereNode extends GPUComputeNode {
   origin: [number, number, number] = [0, 0, 0];
   radius: number = 1.0;
   baseOpacity: number = 0.0002;
+  centerWeight: number = 0.75;
 
   buildUI(pane: any) {
     const p = pane as any;
@@ -15,6 +16,12 @@ export class SpawnSphereNode extends GPUComputeNode {
     p.addBinding(originObj, "y", { label: "Origin Y", min: -10, max: 10 }).on("change", (ev: any) => this.origin[1] = ev.value);
     p.addBinding(originObj, "z", { label: "Origin Z", min: -10, max: 10 }).on("change", (ev: any) => this.origin[2] = ev.value);
     p.addBinding(this, "radius", { label: "Radius", min: 0.01, max: 10 });
+    p.addBinding(this, "centerWeight", {
+      label: "Center Weight",
+      min: 0.1,
+      max: 4.0,
+      step: 0.05,
+    });
   }
 
   updateParams(ctx: any) {
@@ -24,10 +31,10 @@ export class SpawnSphereNode extends GPUComputeNode {
       this.origin[2],
       this.radius,
       this.baseOpacity,
+      this.centerWeight,
+      // padding to satisfy alignment before next vec3/vec4 fields
       0,
       0,
-      0,
-      // padding to satisfy 64-byte uniform minimum (16 floats)
       0, 0, 0, 0,
       0, 0, 0, 0,
       // extra padding to satisfy 80-byte uniform minimum (20 floats)

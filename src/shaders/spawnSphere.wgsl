@@ -28,9 +28,11 @@ struct SpawnSphere {
     origin : vec3<f32>,
     radius : f32,
     baseOpacity : f32,
-    _pad0 : vec3<f32>,
+    centerWeight : f32,
+    _pad0 : vec2<f32>,
     _pad1 : vec4<f32>,
-    _pad2 : vec4<f32>
+    _pad2 : vec4<f32>,
+    _pad3 : vec4<f32>,
 };
 
 // Source Buffer
@@ -81,11 +83,12 @@ fn random_unit_vector(r0: f32, r1: f32) -> vec3<f32> {
 }
 
 ////////////////////////////////////////////////////////////
-// VOLUME-CENTERED DISTRIBUTION: pow(rng, 1.5)
+// Adjustable center weighting: >1 biases toward center, <1 toward edges
 ////////////////////////////////////////////////////////////
 
 fn sample_radius(r: f32) -> f32 {
-    return pow(r, 0.75);
+    let weight = max(sphere.centerWeight, 0.001);
+    return pow(r, weight);
 }
 
 
