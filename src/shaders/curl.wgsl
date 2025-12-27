@@ -31,13 +31,15 @@ struct Params {
   lacunarity : f32,
   gain : f32,
   _pad0 : f32,
+  seed : u32,
+  _pad1 : vec3<u32>,
 };
 @group(0) @binding(2)
 var<uniform> P : Params;
 
 fn hash(p : vec3<i32>) -> f32 {
     let h = dot(p, vec3<i32>(374761393, 668265263, 700001));
-    let n = u32(h);
+    let n = (u32(h) ^ P.seed) + 0x9E3779B9u;
     let mixed = n ^ (n >> 13u);
     return fract(f32((mixed * 1274126177u)) * 0.00000000023283064365386963);
   }

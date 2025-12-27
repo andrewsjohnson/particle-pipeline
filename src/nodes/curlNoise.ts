@@ -23,23 +23,25 @@ export class CurlNoiseNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
-      size: 4 * 8,
+      size: 4 * 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
   }  
   
   updateParams(ctx: any) {
-    const params = new Float32Array([
-      ctx.deltaTime,
-      this.fieldScale,
-      this.strength,
-      this.eps,
-      this.octaves,
-      this.lacunarity,
-      this.gain,
-      0,
-    ]);
-    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+    const buf = new ArrayBuffer(4 * 16);
+    const f32 = new Float32Array(buf);
+    const u32 = new Uint32Array(buf);
+    f32[0] = ctx.deltaTime;
+    f32[1] = this.fieldScale;
+    f32[2] = this.strength;
+    f32[3] = this.eps;
+    f32[4] = this.octaves;
+    f32[5] = this.lacunarity;
+    f32[6] = this.gain;
+    f32[7] = 0;
+    u32[8] = (ctx.randomSeed ?? 1) >>> 0;
+    ctx.queue.writeBuffer(this.paramBuffer, 0, buf);
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {

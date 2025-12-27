@@ -21,7 +21,7 @@ import {
 type SerializedNode = { type: string; props: Record<string, any> };
 type PipelinePreset = {
   name: string;
-  sim: { particleCount: number; baseOpacity: number };
+  sim: { particleCount: number; baseOpacity: number; randomSeed: number };
   compute: SerializedNode[];
   render: SerializedNode[];
 };
@@ -54,6 +54,7 @@ export function buildControlPanel(opts: ControlPanelOpts) {
   const simSettings = {
     particleCount: pipeline.particleCount,
     baseOpacity: pipeline.baseOpacity,
+    randomSeed: pipeline.randomSeed,
   };
   const displaySettings = {
     hdr: hdrEnabled,
@@ -90,6 +91,25 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     })
     .on("change", (ev: any) => {
       pipeline.setBaseOpacity(ev.value);
+    });
+  simFolder
+    .addBinding(simSettings, "randomSeed", {
+      label: "Random Seed",
+      min: 1,
+      max: 4_294_967_295,
+      step: 1,
+    })
+    .on("change", (ev: any) => {
+      pipeline.setRandomSeed(ev.value);
+      simSettings.randomSeed = pipeline.randomSeed;
+      (pane as any).refresh?.();
+    });
+  simFolder
+    .addBlade({ view: "button", label: "Seed", title: "Randomize Seed" })
+    .on("click", () => {
+      pipeline.setRandomSeed();
+      simSettings.randomSeed = pipeline.randomSeed;
+      (pane as any).refresh?.();
     });
 
   // Display / output
@@ -258,6 +278,7 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     sim: {
       particleCount: pipeline.particleCount,
       baseOpacity: pipeline.baseOpacity,
+      randomSeed: pipeline.randomSeed,
     },
     compute: pipeline.computeNodes
       .map((n) => serializeNode(n))
@@ -280,8 +301,10 @@ export function buildControlPanel(opts: ControlPanelOpts) {
 
     pipeline.setParticleCount(preset.sim.particleCount);
     pipeline.setBaseOpacity(preset.sim.baseOpacity);
+    pipeline.setRandomSeed(preset.sim.randomSeed ?? pipeline.randomSeed);
     simSettings.particleCount = pipeline.particleCount;
     simSettings.baseOpacity = pipeline.baseOpacity;
+    simSettings.randomSeed = pipeline.randomSeed;
 
     const compute = deserializeNodes(preset.compute, "compute");
     const render = deserializeNodes(preset.render, "render");

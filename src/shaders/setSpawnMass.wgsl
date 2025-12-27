@@ -28,8 +28,8 @@ var<storage, read_write> dst : ParticleBuffer;
 struct Params { 
     minMass: f32,
     maxMass: f32,
-    _pad0: f32,
-    _pad1: f32,
+    seed: u32,
+    _pad0: u32,
 };
 
 // Uniforms Binding
@@ -75,7 +75,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     // change particle attributes if age is 0
     if (particle.age == 0.0 && particle.alive == 1u) {
-        var state: u32 = idx ^ 0x1F123BB5u;
+        var state: u32 = (idx ^ P.seed ^ 0x1F123BB5u) | 1u;
         var mass = rand_f(&state);
         particle.mass = P.minMass + mass * (P.maxMass - P.minMass);
     }

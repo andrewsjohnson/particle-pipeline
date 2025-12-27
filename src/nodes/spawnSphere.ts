@@ -25,27 +25,23 @@ export class SpawnSphereNode extends GPUComputeNode {
   }
 
   updateParams(ctx: any) {
-    const params = new Float32Array([
-      this.origin[0],
-      this.origin[1],
-      this.origin[2],
-      this.radius,
-      this.baseOpacity,
-      this.centerWeight,
-      // padding to satisfy alignment before next vec3/vec4 fields
-      0,
-      0,
-      0, 0, 0, 0,
-      0, 0, 0, 0,
-      // extra padding to satisfy 80-byte uniform minimum (20 floats)
-      0, 0, 0, 0,
-    ]);
-    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+    const buf = new ArrayBuffer(4 * 20);
+    const f32 = new Float32Array(buf);
+    const u32 = new Uint32Array(buf);
+    f32[0] = this.origin[0];
+    f32[1] = this.origin[1];
+    f32[2] = this.origin[2];
+    f32[3] = this.radius;
+    f32[4] = this.baseOpacity;
+    f32[5] = this.centerWeight;
+    u32[6] = (ctx.randomSeed ?? 1) >>> 0;
+    // Remaining entries stay zero for padding
+    ctx.queue.writeBuffer(this.paramBuffer, 0, buf);
   }
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
-      size: 4 * 20, // 80 bytes (align to min uniform binding size)
+      size: 4 * 24, // 96 bytes (align to WGSL uniform layout size)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
   }

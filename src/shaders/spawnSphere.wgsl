@@ -29,10 +29,12 @@ struct SpawnSphere {
     radius : f32,
     baseOpacity : f32,
     centerWeight : f32,
-    _pad0 : vec2<f32>,
-    _pad1 : vec4<f32>,
+    seed : u32,
+    _pad0 : u32,
+    _pad1 : vec2<u32>,
     _pad2 : vec4<f32>,
     _pad3 : vec4<f32>,
+    _pad4 : vec2<f32>,
 };
 
 // Source Buffer
@@ -112,7 +114,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
     var p = src.particles[idx];
 
     // seed per particle
-    var state: u32 = idx ^ 0x1F123BB5u;
+    var state: u32 = (idx ^ sphere.seed ^ 0x1F123BB5u) | 1u;
 
     let r0 = rand_f(&state);
     let r1 = rand_f(&state);

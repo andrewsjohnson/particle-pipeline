@@ -27,6 +27,7 @@ export class Pipeline {
     renderTextureHeight: number;
 
     baseOpacity: number;
+    randomSeed: number;
 
     frameIndex = 0;
     private nodeListeners: Array<() => void> = [];
@@ -45,6 +46,8 @@ export class Pipeline {
         // The accumulation target renders at 2x resolution for better quality
         this.renderTextureWidth = opts.renderWidth * 2;
         this.renderTextureHeight = opts.renderHeight * 2;
+        // Seed all random-dependent nodes; default to start time for deterministic runs.
+        this.randomSeed = (Date.now() >>> 0) || 1;
         
         // Persistent offscreen float texture (accumulation)
         this.renderTexture = device.createTexture({
@@ -157,6 +160,7 @@ export class Pipeline {
             particleRenderTexture: this.renderTextureView,
             frameIndex: this.frameIndex,
             deltaTime: 0,
+            randomSeed: this.randomSeed,
         };
     }
 
@@ -183,6 +187,7 @@ export class Pipeline {
 
             frameIndex: this.frameIndex,
             deltaTime: dt,
+            randomSeed: this.randomSeed,
         };
     }
 
@@ -273,6 +278,14 @@ export class Pipeline {
         this.baseOpacity = clamped;
         // Reset accumulation to avoid mixing states across opacity changes
         this.frameIndex = 0;
+    }
+
+    /** Set global random seed used by all stochastic nodes and restart simulation. */
+    setRandomSeed(seed?: number) {
+        const next = (seed ?? Date.now()) >>> 0;
+        // Avoid zero seed to keep xor/shift RNGs from degenerating.
+        this.randomSeed = next === 0 ? 1 : next;
+        this.resetSimulation();
     }
 
     private _emitNodesChanged() {

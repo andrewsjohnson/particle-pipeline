@@ -22,13 +22,13 @@ export class SetSpawnMassNode extends GPUComputeNode {
   }
 
   updateParams(ctx: any) {
-    const params = new Float32Array([
-      this.minMass,
-      this.maxMass,
-      0,
-      0,
-    ]);
-    ctx.queue.writeBuffer(this.paramBuffer, 0, params);
+    const buf = new ArrayBuffer(4 * 4);
+    const f32 = new Float32Array(buf);
+    const u32 = new Uint32Array(buf);
+    f32[0] = this.minMass;
+    f32[1] = this.maxMass;
+    u32[2] = (ctx.randomSeed ?? 1) >>> 0;
+    ctx.queue.writeBuffer(this.paramBuffer, 0, buf);
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
