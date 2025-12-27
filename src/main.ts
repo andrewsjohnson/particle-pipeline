@@ -46,13 +46,6 @@ async function main() {
     return;
   }
 
-  const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-  ctx.configure({
-    device,
-    format: canvasFormat,
-    alphaMode: "premultiplied",
-  });
-
   // Simulation Parameters
   const particleCount = 3_000_000;
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -65,6 +58,30 @@ async function main() {
     particleTextureFormat: "rgba32float"
   })
 
+  const renderParticlesNode = new RenderParticlesNode();
+  const compositeNode = new CompositeNode();
+
+  const hdrState = { enabled: false };
+  const configureCanvas = (enableHdr: boolean) => {
+    hdrState.enabled = enableHdr;
+    const format: GPUTextureFormat = enableHdr
+      ? "rgba16float"
+      : navigator.gpu.getPreferredCanvasFormat();
+
+    // If node isn't initialized yet, it will pick up targetFormat during init.
+    compositeNode.setTargetFormat(format, device);
+    // Tone map only in SDR mode
+    compositeNode.setToneMapping(!enableHdr, device);
+
+    ctx.configure({
+      device,
+      format,
+      alphaMode: "premultiplied",
+    });
+  };
+
+  configureCanvas(hdrState.enabled);
+
   pipeline.addNode(new InitializeParticlesNode());
   pipeline.addNode(new SpawnSphereNode());
   pipeline.addNode(new SetSpawnColorNode());  
@@ -74,9 +91,8 @@ async function main() {
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new MinVelKillNode());
   pipeline.addNode(new OpacityScaleNode());
-  pipeline.addNode(new RenderParticlesNode());
-  // pipeline.addNode(new RenderBokehParticlesNode());
-  pipeline.addNode(new CompositeNode());
+  pipeline.addNode(renderParticlesNode);
+  pipeline.addNode(compositeNode);
 
   await pipeline.init();
 
@@ -91,6 +107,7 @@ async function main() {
   buildControlPanel({
     pipeline,
     simState,
+    hdrEnabled: hdrState.enabled,
     onPauseChange: (paused) => {
       simState.paused = paused;
       last = performance.now();
@@ -98,6 +115,9 @@ async function main() {
     onReset: () => {
       updateCanvasSize();
       pipeline.resetSimulation();
+    },
+    onToggleHdr: (enabled) => {
+      configureCanvas(enabled);
     },
     onSaveExr: async () => {
       const { width, height, data } = await pipeline.readHDRTexture();
@@ -339,7 +359,7 @@ async function main() {
   //         console.table(arr);
   //     });
   // }
-  
+
     requestAnimationFrame(frame);
   }
 

@@ -36,14 +36,16 @@ const isSerializableValue = (v: any) =>
 type ControlPanelOpts = {
   pipeline: Pipeline;
   simState: { paused: boolean };
+  hdrEnabled: boolean;
   onPauseChange: (paused: boolean) => void;
   onReset: () => void;
   onSaveExr: () => Promise<void>;
   onSaveHdr: () => Promise<void>;
+  onToggleHdr: (enabled: boolean) => void;
 };
 
 export function buildControlPanel(opts: ControlPanelOpts) {
-  const { pipeline, simState, onPauseChange, onReset, onSaveExr, onSaveHdr } =
+  const { pipeline, simState, hdrEnabled, onPauseChange, onReset, onSaveExr, onSaveHdr, onToggleHdr } =
     opts;
 
   const pane = new Pane({ title: "Particle Pipeline" });
@@ -52,6 +54,9 @@ export function buildControlPanel(opts: ControlPanelOpts) {
   const simSettings = {
     particleCount: pipeline.particleCount,
     baseOpacity: pipeline.baseOpacity,
+  };
+  const displaySettings = {
+    hdr: hdrEnabled,
   };
 
   // Pause / Reset
@@ -85,6 +90,14 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     })
     .on("change", (ev: any) => {
       pipeline.setBaseOpacity(ev.value);
+    });
+
+  // Display / output
+  const displayFolder = (pane as any).addFolder({ title: "Display" });
+  displayFolder
+    .addBinding(displaySettings, "hdr", { label: "HDR" })
+    .on("change", (ev: any) => {
+      onToggleHdr(ev.value);
     });
 
   // Capture buttons
