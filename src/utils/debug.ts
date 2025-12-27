@@ -2,6 +2,7 @@ import { PARTICLE_SIZE } from "../particles/particleLayout";
 
 export async function readGPUBuffer(device: GPUDevice, src: GPUBuffer, size: number) {
     const readBuffer = device.createBuffer({
+        label: "debug.readback",
         size,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
     });

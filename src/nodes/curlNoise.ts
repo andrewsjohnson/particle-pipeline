@@ -23,6 +23,7 @@ export class CurlNoiseNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "curlNoise.params",
       size: 4 * 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

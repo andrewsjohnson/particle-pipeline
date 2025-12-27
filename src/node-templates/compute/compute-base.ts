@@ -8,6 +8,7 @@ export class ComputeBaseNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramsBuffer = device.createBuffer({
+      label: "computeBase.params",
       size: 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

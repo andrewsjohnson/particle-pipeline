@@ -58,6 +58,7 @@ export class CompositeNode extends GPURenderNode {
 
     // params: applyToneMap (u32)
     this.paramBuffer = device.createBuffer({
+      label: "composite.params",
       size: 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

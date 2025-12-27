@@ -18,6 +18,7 @@ export class RenderParticlesNode extends GPURenderNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "renderParticles.params",
       size: 4 * 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -51,7 +52,6 @@ export class RenderParticlesNode extends GPURenderNode {
       {x: 0, y: 1, z: 0}
     );
     const mvp = multiplyMat4(proj, view);
-    const params = new Float32Array(mvp);
     ctx.queue.writeBuffer(this.paramBuffer, 0, mvp);
   };
 

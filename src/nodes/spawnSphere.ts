@@ -41,6 +41,7 @@ export class SpawnSphereNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "spawnSphere.params",
       size: 4 * 24, // 96 bytes (align to WGSL uniform layout size)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

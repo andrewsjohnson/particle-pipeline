@@ -7,6 +7,7 @@ export class InitializeParticlesNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "initializeParticles.params",
       size: 4 * 8, // 32 bytes (aligned for uniform min size)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

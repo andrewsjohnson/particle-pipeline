@@ -13,6 +13,7 @@ export class MinVelKillNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "minVelKill.params",
       size: 4 * 1,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

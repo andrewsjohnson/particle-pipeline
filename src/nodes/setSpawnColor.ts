@@ -40,6 +40,7 @@ export class SetSpawnColorNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "setSpawnColor.params",
       size: 4 * 4 * 5,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

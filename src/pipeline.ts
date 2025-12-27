@@ -129,10 +129,12 @@ export class Pipeline {
         const bufferSize = this.particleCount * PARTICLE_SIZE;
 
         this.particleA = this.device.createBuffer({
+            label: "pipeline.particles.a",
             size: bufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
         this.particleB = this.device.createBuffer({
+            label: "pipeline.particles.b",
             size: bufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
         });
@@ -253,10 +255,12 @@ export class Pipeline {
         try { this.particleB?.destroy?.(); } catch (err) { console.warn(err); }
 
         this.particleA = this.device.createBuffer({
+            label: "pipeline.particles.a",
             size: bufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
         this.particleB = this.device.createBuffer({
+            label: "pipeline.particles.b",
             size: bufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
@@ -311,6 +315,7 @@ export class Pipeline {
         const paddedSize = paddedBytesPerRow * height;
 
         const readBuffer = this.device.createBuffer({
+            label: "pipeline.readHDR.readback",
             size: paddedSize,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });

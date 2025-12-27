@@ -1,5 +1,4 @@
 import { perspectiveMatrix } from "../utils/perspectiveMatrix.ts";
-import { multiplyMat4 } from "../utils/math.ts";
 import { lookAt } from "../utils/perspectiveMatrix.ts";
 import { GPURenderNode } from "./kinds/render-node.ts";
 
@@ -28,6 +27,7 @@ export class RenderBokehParticlesNode extends GPURenderNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "renderBokehParticles.params",
       size: 4 * 16 * 2 + 4 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });

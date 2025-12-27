@@ -6,6 +6,7 @@ export class IntegratorNode extends GPUComputeNode {
 
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
+      label: "integrator.params",
       size: 4 * 1,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
