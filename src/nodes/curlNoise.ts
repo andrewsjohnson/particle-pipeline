@@ -30,6 +30,10 @@ export class CurlNoiseNode extends GPUComputeNode {
   }  
   
   updateParams(ctx: any) {
+    if (!this.paramBuffer) {
+      console.warn("CurlNoiseNode params buffer not ready; skipping frame.");
+      return false;
+    }
     const buf = new ArrayBuffer(4 * 16);
     const f32 = new Float32Array(buf);
     const u32 = new Uint32Array(buf);
@@ -43,10 +47,17 @@ export class CurlNoiseNode extends GPUComputeNode {
     f32[7] = 0;
     u32[8] = (ctx.randomSeed ?? 1) >>> 0;
     ctx.queue.writeBuffer(this.paramBuffer, 0, buf);
+    return true;
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    this.updateParams(ctx);
+    if (!this.paramBuffer) {
+      console.warn("CurlNoiseNode not initialized; skipping frame.");
+      return false;
+    }
+    if (this.updateParams(ctx) === false) {
+      return false;
+    }
 
     const bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),

@@ -12,6 +12,8 @@ import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
 import { MinVelKillNode } from "./nodes/minVelKill.ts";
 import { OpacityScaleNode } from "./nodes/opacityScale.ts";
 import { buildControlPanel } from "./ui/controlPanel.ts";
+import { FlockingNode } from "./nodes/flocking.ts";
+import { PhysarumNode } from "./nodes/physarum.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -86,8 +88,10 @@ async function main() {
   pipeline.addNode(new SpawnSphereNode());
   pipeline.addNode(new SetSpawnColorNode());  
   pipeline.addNode(new SetSpawnMassNode());
-  pipeline.addNode(new ResetVelNode());
+  // pipeline.addNode(new ResetVelNode());
   pipeline.addNode(new CurlNoiseNode());
+  pipeline.addNode(new PhysarumNode());
+  // pipeline.addNode(new FlockingNode());
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new MinVelKillNode());
   pipeline.addNode(new OpacityScaleNode());
