@@ -10,6 +10,7 @@ import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
 import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
 import { MinVelKillNode } from "./nodes/minVelKill.ts";
+import { SetSpawnLifespanNode } from "./nodes/setSpawnLifespan.ts";
 import { OpacityScaleNode } from "./nodes/opacityScale.ts";
 import { buildControlPanel } from "./ui/controlPanel.ts";
 import { FlockingNode } from "./nodes/flocking.ts";
@@ -87,6 +88,7 @@ async function main() {
   pipeline.addNode(new SpawnSphereNode());
   pipeline.addNode(new SetSpawnColorNode());  
   pipeline.addNode(new SetSpawnMassNode());
+  pipeline.addNode(new SetSpawnLifespanNode());
   pipeline.addNode(new DragNode());
   pipeline.addNode(new CurlNoiseNode());
   // pipeline.addNode(new FlockingNode());
