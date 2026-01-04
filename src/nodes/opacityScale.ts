@@ -4,7 +4,7 @@ export class OpacityScaleNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/opacityScale.wgsl";
   paramBuffer!: GPUBuffer;
 
-  fadeInTime: number = 10.0; // seconds to reach full opacity
+  fadeInTime: number = 0.5; // seconds to reach full opacity
   power: number = 2.0; // curve shaping exponent (1 = linear)
 
   buildUI(pane: any) {
@@ -32,6 +32,9 @@ export class OpacityScaleNode extends GPUComputeNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
+    // Guard: skip if not initialized yet
+    if (!this.paramBuffer || !this.pipeline) return false;
+
     this.updateParams(ctx);
 
     const bindGroup = ctx.device.createBindGroup({

@@ -33,6 +33,9 @@ export class SetSpawnMassNode extends GPUComputeNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
+    // Guard: skip if not initialized yet
+    if (!this.paramBuffer || !this.pipeline) return false;
+
     this.updateParams(ctx);
 
     const bindGroup = ctx.device.createBindGroup({

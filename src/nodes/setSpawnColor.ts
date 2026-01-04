@@ -62,6 +62,9 @@ export class SetSpawnColorNode extends GPUComputeNode {
 
   // Record the node, this is called every frame.
   record(encoder: GPUCommandEncoder, ctx: any) {
+    // Guard: skip if not initialized yet
+    if (!this.paramBuffer || !this.pipeline) return false;
+
     this.updateParams(ctx);
 
     // Create bind group

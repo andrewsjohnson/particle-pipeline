@@ -25,7 +25,9 @@ export class MinVelKillNode extends GPUComputeNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    if (ctx.frameIndex === 0) return false;
+    // Guard: skip if not initialized yet or on first frame
+    if (!this.paramBuffer || !this.pipeline || ctx.frameIndex === 0) return false;
+
     this.updateParams(ctx);
 
     const bindGroup = ctx.device.createBindGroup({

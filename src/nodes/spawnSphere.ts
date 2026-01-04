@@ -48,6 +48,9 @@ export class SpawnSphereNode extends GPUComputeNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
+    // Guard: skip if not initialized yet
+    if (!this.paramBuffer || !this.pipeline) return false;
+
     this.baseOpacity = ctx.baseOpacity;
     this.updateParams(ctx);
 

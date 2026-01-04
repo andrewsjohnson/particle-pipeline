@@ -8,7 +8,6 @@ import { SetSpawnMassNode } from "../nodes/setSpawnMass.ts";
 import { ResetVelNode } from "../nodes/resetVel.ts";
 import { CurlNoiseNode } from "../nodes/curlNoise.ts";
 import { FlockingNode } from "../nodes/flocking.ts";
-import { PhysarumNode } from "../nodes/physarum.ts";
 import { AttractorNode } from "../nodes/attractor.ts";
 import { IntegratorNode } from "../nodes/integrator.ts";
 import { MinVelKillNode } from "../nodes/minVelKill.ts";
@@ -140,7 +139,6 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     { key: "resetVel", label: "ResetVelocity", ctor: ResetVelNode },
     { key: "curlNoise", label: "CurlNoise", ctor: CurlNoiseNode },
     { key: "flocking", label: "Flocking", ctor: FlockingNode },
-    { key: "physarum", label: "Physarum", ctor: PhysarumNode },
     { key: "attractor", label: "Attractor", ctor: AttractorNode },
     { key: "integrator", label: "Integrator", ctor: IntegratorNode },
     { key: "minVelKill", label: "MinVelKill", ctor: MinVelKillNode },

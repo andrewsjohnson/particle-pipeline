@@ -5,7 +5,7 @@ import { RenderParticlesNode } from "./nodes/renderParticles.ts";
 import { CompositeNode } from "./nodes/composite.ts";
 // import { parseParticles, readGPUBuffer } from "./utils/debug.ts";
 import { CurlNoiseNode } from "./nodes/curlNoise.ts";
-import { ResetVelNode } from "./nodes/resetVel.ts";
+import { DragNode } from "./nodes/drag.ts";
 import { SetSpawnColorNode } from "./nodes/setSpawnColor.ts";
 import { SetSpawnMassNode } from "./nodes/setSpawnMass.ts";
 import { InitializeParticlesNode } from "./nodes/initializeParticles.ts";
@@ -13,7 +13,6 @@ import { MinVelKillNode } from "./nodes/minVelKill.ts";
 import { OpacityScaleNode } from "./nodes/opacityScale.ts";
 import { buildControlPanel } from "./ui/controlPanel.ts";
 import { FlockingNode } from "./nodes/flocking.ts";
-import { PhysarumNode } from "./nodes/physarum.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -88,9 +87,8 @@ async function main() {
   pipeline.addNode(new SpawnSphereNode());
   pipeline.addNode(new SetSpawnColorNode());  
   pipeline.addNode(new SetSpawnMassNode());
-  // pipeline.addNode(new ResetVelNode());
+  pipeline.addNode(new DragNode());
   pipeline.addNode(new CurlNoiseNode());
-  pipeline.addNode(new PhysarumNode());
   // pipeline.addNode(new FlockingNode());
   pipeline.addNode(new IntegratorNode());
   pipeline.addNode(new MinVelKillNode());

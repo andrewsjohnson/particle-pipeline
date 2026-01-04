@@ -29,7 +29,8 @@ export class InitializeParticlesNode extends GPUComputeNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    if (ctx.frameIndex !== 0) return false;
+    // Guard: skip if not initialized yet or not first frame
+    if (!this.paramBuffer || !this.pipeline || ctx.frameIndex !== 0) return false;
 
     this.updateParams(ctx);
 

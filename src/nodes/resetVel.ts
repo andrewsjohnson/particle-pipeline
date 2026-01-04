@@ -6,7 +6,8 @@ export class ResetVelNode extends GPUComputeNode {
   onPipelineReady(_device: GPUDevice, _ctx: any) {}
 
   record(encoder: GPUCommandEncoder, ctx: any) {
-    if (ctx.frameIndex === 0) return false;
+    // Guard: skip if not initialized yet or on first frame
+    if (!this.pipeline || ctx.frameIndex === 0) return false;
 
     const bindGroup = ctx.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),

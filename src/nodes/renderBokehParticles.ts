@@ -65,6 +65,9 @@ export class RenderBokehParticlesNode extends GPURenderNode {
   }
 
   record(encoder: GPUCommandEncoder, ctx: any) {
+    // Guard: skip if not initialized yet
+    if (!this.paramBuffer || !this.pipeline) return;
+
     this.updateParams(ctx);
 
     const bindGroup = ctx.device.createBindGroup({
