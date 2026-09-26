@@ -1,3 +1,4 @@
+import { PARTICLE_SIZE } from "./particles/particleLayout.ts";
 import { Pipeline } from "./pipeline.ts";
 import { SpawnSphereNode } from "./nodes/spawnSphere.ts";
 import { IntegratorNode } from "./nodes/integrator.ts";
@@ -13,7 +14,6 @@ import { MinVelKillNode } from "./nodes/minVelKill.ts";
 import { SetSpawnLifespanNode } from "./nodes/setSpawnLifespan.ts";
 import { OpacityScaleNode } from "./nodes/opacityScale.ts";
 import { buildControlPanel } from "./ui/controlPanel.ts";
-import { FlockingNode } from "./nodes/flocking.ts";
 
 async function main() {
   const canvas = document.getElementById("gfx") as HTMLCanvasElement;
@@ -29,12 +29,16 @@ async function main() {
     return;
   }
 
+  const features: GPUFeatureName[] = ["float32-filterable", "float32-blendable"];
+  const missing = features.filter((feature) => !adapter.features.has(feature));
+  if (missing.length) throw new Error(`This GPU lacks the floating-point rendering features: ${missing.join(", ")}`);
+  const bufferLimit = Math.min(6_000_000 * PARTICLE_SIZE, adapter.limits.maxBufferSize, adapter.limits.maxStorageBufferBindingSize);
   const device = await adapter.requestDevice({
-    requiredFeatures: ["texture-formats-tier1", "texture-formats-tier2", "float32-filterable", "float32-blendable"],
+    requiredFeatures: features,
     requiredLimits: {
-      maxBufferSize: 4 * 1024 * 1024 * 1024,
-      maxStorageBufferBindingSize: 1024 * 1024 * 1024,
-    }
+      maxBufferSize: bufferLimit,
+      maxStorageBufferBindingSize: bufferLimit,
+    },
   });
 
   if (!device) {
@@ -49,7 +53,7 @@ async function main() {
   }
 
   // Simulation Parameters
-  const particleCount = 3_000_000;
+  const particleCount = Math.min(3_000_000, Math.floor(bufferLimit / PARTICLE_SIZE));
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
@@ -71,14 +75,18 @@ async function main() {
       : navigator.gpu.getPreferredCanvasFormat();
 
     // If node isn't initialized yet, it will pick up targetFormat during init.
-    compositeNode.setTargetFormat(format, device);
-    // Tone map only in SDR mode
-    compositeNode.setToneMapping(!enableHdr, device);
+    // Preset loading replaces nodes; always configure the active composite.
+    const composites = pipeline.renderNodes.filter((node): node is CompositeNode => node instanceof CompositeNode);
+    for (const node of composites.length ? composites : [compositeNode]) {
+      node.setTargetFormat(format, device);
+      node.setToneMapping(!enableHdr, device);
+    }
 
     ctx.configure({
       device,
       format,
       alphaMode: "premultiplied",
+      toneMapping: { mode: enableHdr ? "extended" : "standard" },
     });
   };
 
@@ -114,6 +122,7 @@ async function main() {
     hdrEnabled: hdrState.enabled,
     onPauseChange: (paused) => {
       simState.paused = paused;
+      pipeline.resetClock();
       last = performance.now();
     },
     onReset: () => {
@@ -353,6 +362,8 @@ async function main() {
 
     if (!simState.paused) {
       pipeline.frame(dt);
+    } else {
+      pipeline.present();
     }
 
     // Debug once after spawn runs
@@ -367,6 +378,11 @@ async function main() {
     requestAnimationFrame(frame);
   }
 
+  document.addEventListener("visibilitychange", () => {
+    last = performance.now();
+    pipeline.resetClock();
+  });
+  window.addEventListener("resize", updateCanvasSize);
   frame();
   console.log("canvas size", canvas.width, canvas.height);
   console.log("ctx format", navigator.gpu.getPreferredCanvasFormat());
@@ -374,4 +390,10 @@ async function main() {
   console.log("pipeline", pipeline);
 }
 
-main();
+main().catch((error: unknown) => {
+  console.error(error);
+  const message = document.createElement("pre");
+  message.style.cssText = "position:fixed;inset:24px;color:white;white-space:pre-wrap;font:16px sans-serif";
+  message.textContent = `Unable to start Particle Pipeline: ${error instanceof Error ? error.message : error}`;
+  document.body.appendChild(message);
+});

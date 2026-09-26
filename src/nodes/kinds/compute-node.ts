@@ -1,4 +1,4 @@
-import { GPUNode, type GPUNodeStage } from "./base";
+import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export abstract class GPUComputeNode extends GPUNode {
     declare pipeline: GPUComputePipeline;

@@ -30,9 +30,10 @@ struct Params {
   octaves : f32,
   lacunarity : f32,
   gain : f32,
-  _pad0 : f32,
+  mode : u32,
   seed : u32,
-  _pad1 : vec3<u32>,
+  normalizeField : u32,
+  _pad1 : vec2<u32>,
 };
 @group(0) @binding(2)
 var<uniform> P : Params;
@@ -127,12 +128,25 @@ fn hash(p : vec3<i32>) -> f32 {
     }
   
     var particle = src.particles[idx];
+    if (particle.alive == 0u || particle.needsRespawn == 1u) {
+      dst.particles[idx] = particle;
+      return;
+    }
     let scaledPos = particle.position * P.fieldScale;
     let octaveCount = max(1, i32(P.octaves));
-    let curl = curlAt(scaledPos, P.eps, octaveCount, P.lacunarity, P.gain);
+    let curl = curlAt(scaledPos, max(P.eps, 0.000001), octaveCount, P.lacunarity, P.gain);
 
-    let curlNormalized = normalize(curl);
-    particle.velocity = particle.velocity + curlNormalized * P.strength;
+    var field = curl;
+    if (P.normalizeField == 1u) {
+      field = curl / max(length(curl), 0.000001);
+    }
+    if (P.mode == 0u) {
+      particle.velocity = field * P.strength;
+    } else if (P.mode == 1u) {
+      particle.velocity += field * P.strength * P.dt;
+    } else {
+      particle.velocity += field * P.strength;
+    }
     dst.particles[idx] = particle;
   }
   

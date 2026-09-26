@@ -36,12 +36,11 @@ fn vs_main(@builtin(vertex_index) i : u32) -> VSOut {
     let p = src.particles[i];
     var o : VSOut;
 
-    // Discard by pushing off-screen
-    // if (p.alive == 0u) {
-    //     o.pos = vec4<f32>(2.0,2.0,0.0,1.0);
-    //     o.col = vec4<f32>(0);
-    //     return o;
-    // }
+    if (p.alive == 0u || p.needsRespawn == 1u) {
+        o.pos = vec4<f32>(2.0, 2.0, 0.0, 1.0);
+        o.col = vec4<f32>(0.0);
+        return o;
+    }
 
     let world = vec4<f32>(p.position, 1.0);
 

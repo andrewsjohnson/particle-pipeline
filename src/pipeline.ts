@@ -1,6 +1,7 @@
 import { GPUNode } from "./nodes/kinds/base.ts";
 import type { GPUComputeNode } from "./nodes/kinds/compute-node.ts";
 import type { GPURenderNode } from "./nodes/kinds/render-node.ts";
+import { FixedStepClock, SIMULATION_STEP } from "./simulation/fixedStep.ts";
 import { PARTICLE_SIZE } from "./particles/particleLayout.ts";
 
 interface PipelineOptions {
@@ -30,6 +31,8 @@ export class Pipeline {
     randomSeed: number;
 
     frameIndex = 0;
+    accumulationFrameIndex = 0;
+    private clock = new FixedStepClock();
     private nodeListeners: Array<() => void> = [];
     private initialized = false;
 
@@ -40,6 +43,7 @@ export class Pipeline {
     constructor(device: GPUDevice, ctx: GPUCanvasContext, opts: PipelineOptions) {
         this.device = device;
         this.ctx = ctx;
+        this.validateParticleCount(opts.particleCount);
         this.particleCount = opts.particleCount;
         this.baseOpacity = 0.0002;
         this.renderTextureFormat = opts.particleTextureFormat;
@@ -71,13 +75,14 @@ export class Pipeline {
     }
 
     async addNodeAndInit(node: GPUNode) {
-        this.addNode(node);
         if (this.initialized) {
             await node.init(this.device, this._contextStatic());
         }
+        this.addNode(node);
     }
 
     removeNode(node: GPUNode) {
+        node.dispose();
         if (node.stage === "compute") {
             this.computeNodes = this.computeNodes.filter((n) => n !== node);
         } else if (node.stage === "render") {
@@ -106,17 +111,21 @@ export class Pipeline {
         // until the new ones are fully ready. This avoids transient undefined buffers.
         if (this.initialized) {
             const ctx = this._contextStatic();
-            for (const node of [...computeNodes, ...renderNodes]) {
-                await node.init(this.device, ctx);
+            try {
+                for (const node of [...computeNodes, ...renderNodes]) await node.init(this.device, ctx);
+            } catch (error) {
+                for (const node of [...computeNodes, ...renderNodes]) node.dispose();
+                throw error;
             }
         }
 
+        for (const node of [...this.computeNodes, ...this.renderNodes]) node.dispose();
         this.computeNodes = computeNodes;
         this.renderNodes = renderNodes;
 
         if (this.initialized) {
             // Start accumulation over after topology/params change
-            this.frameIndex = 0;
+            this.resetSimulation();
         }
         this._emitNodesChanged();
     }
@@ -170,7 +179,7 @@ export class Pipeline {
      * Dynamic per-frame context.
      * Canvas view MUST be refreshed every frame, because GPUTexture returned from canvas is transient.
      */
-    private _contextFrame(dt: number) {
+    private _contextFrame(dt: number, presentation = false) {
         return {
             device: this.device,
             queue: this.device.queue,
@@ -185,15 +194,25 @@ export class Pipeline {
             particleRenderTarget: this.renderTextureView,
 
             // UPDATED EVERY FRAME
-            canvasView: this.ctx.getCurrentTexture().createView(),
+            canvasView: presentation ? this.ctx.getCurrentTexture().createView() : undefined,
 
             frameIndex: this.frameIndex,
+            accumulationFrameIndex: this.accumulationFrameIndex,
             deltaTime: dt,
             randomSeed: this.randomSeed,
         };
     }
 
-    frame(dt: number) {
+    /** Advance at 60 fixed steps/second; display refresh never adds samples. */
+    frame(elapsed: number) {
+        this.clock.advance(elapsed, () => this.step());
+        this.present();
+    }
+
+    /** Exactly one deterministic step, also used for offline rendering. */
+    step() {
+        if (![...this.computeNodes, ...this.renderNodes].every((node) => node.ready)) return;
+        const dt = SIMULATION_STEP;
         const encoder = this.device.createCommandEncoder();
         const ctx = this._contextFrame(dt);
     
@@ -211,11 +230,36 @@ export class Pipeline {
     
         // 3. render nodes
         for (const node of this.renderNodes) {
-            node.record(encoder, ctx);
+            if (!node.presentationOnly) node.record(encoder, ctx);
         }
-    
+
+        // Submit each step separately: subsequent queue.writeBuffer calls must
+        // not overwrite uniforms used by an earlier step in the same submission.
         this.device.queue.submit([encoder.finish()]);
         this.frameIndex++;
+        this.accumulationFrameIndex++;
+    }
+
+    present() {
+        const encoder = this.device.createCommandEncoder();
+        const ctx = this._contextFrame(0, true);
+        for (const node of this.renderNodes) {
+            if (node.presentationOnly && node.ready) node.record(encoder, ctx);
+        }
+        this.device.queue.submit([encoder.finish()]);
+    }
+
+    resetClock() {
+        this.clock.reset();
+    }
+
+    validateParticleCount(count: number) {
+        const bytes = count * PARTICLE_SIZE;
+        const limits = this.device.limits;
+        if (!Number.isSafeInteger(count) || count < 1 || bytes > limits.maxBufferSize ||
+            bytes > limits.maxStorageBufferBindingSize || Math.ceil(count / 256) > limits.maxComputeWorkgroupsPerDimension) {
+            throw new Error(`Particle count ${count} exceeds this device's limits`);
+        }
     }
 
     /**
@@ -244,8 +288,8 @@ export class Pipeline {
         });
         this.renderTextureView = this.renderTexture.createView();
 
-        // Reset accumulation since dimensions changed
-        this.frameIndex = 0;
+        // Resizing clears the image, not the particle simulation.
+        this.accumulationFrameIndex = 0;
     }
 
     /** Recreate particle buffers and restart frame counter (does not touch node params/UI). */
@@ -266,11 +310,21 @@ export class Pipeline {
         });
 
         this.frameIndex = 0;
+        this.accumulationFrameIndex = 0;
+        this.clock.reset();
+        const encoder = this.device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({ colorAttachments: [{
+            view: this.renderTextureView, loadOp: "clear", storeOp: "store",
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+        }] });
+        pass.end();
+        this.device.queue.submit([encoder.finish()]);
     }
 
     /** Change particle count, recreate buffers, and reset accumulation. */
     setParticleCount(count: number) {
         const clamped = Math.max(1, Math.floor(count));
+        this.validateParticleCount(clamped);
         if (clamped === this.particleCount) return;
         this.particleCount = clamped;
         this.resetSimulation();
@@ -278,10 +332,11 @@ export class Pipeline {
 
     /** Update base opacity (alpha multiplier stored on particles) and restart accumulation. */
     setBaseOpacity(opacity: number) {
-        const clamped = Math.max(0, opacity);
+        const clamped = Math.min(1, Math.max(0, opacity));
+        if (!Number.isFinite(clamped)) throw new Error("Invalid base opacity");
+        if (clamped === this.baseOpacity) return;
         this.baseOpacity = clamped;
-        // Reset accumulation to avoid mixing states across opacity changes
-        this.frameIndex = 0;
+        this.resetSimulation();
     }
 
     /** Set global random seed used by all stochastic nodes and restart simulation. */

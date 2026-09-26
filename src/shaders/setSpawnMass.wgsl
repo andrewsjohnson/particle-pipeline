@@ -38,27 +38,10 @@ var<uniform> P : Params;
 
 
 ////////////////////////////////////////////////////////////
-// XOROSHIRO32* — single u32 state
+// SHARED COUNTER-BASED RANDOMNESS
 ////////////////////////////////////////////////////////////
 
-fn rotl32(x: u32, k: u32) -> u32 {
-    return (x << k) | (x >> (32u - k));
-}
-
-fn xrs32_next(state: ptr<function, u32>) -> u32 {
-    var x = *state;
-    x ^= x << 7u;
-    x ^= x >> 9u;
-    x ^= x << 8u;
-    *state = x;
-    // star transform
-    return rotl32(x * 0x9E3779BBu, 5u);
-}
-
-// convert to [0,1)
-fn rand_f(state: ptr<function, u32>) -> f32 {
-    return f32(xrs32_next(state)) / 4294967295.0;
-}
+// @include random.wgsl
   
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
@@ -75,7 +58,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     // change particle attributes if age is 0
     if (particle.age == 0.0 && particle.alive == 1u) {
-        var state: u32 = (idx ^ P.seed ^ 0x1F123BB5u) | 1u;
+        var state: u32 = particle_seed(idx, P.seed, 0x3C6EF372u);
         var mass = rand_f(&state);
         particle.mass = P.minMass + mass * (P.maxMass - P.minMass);
     }

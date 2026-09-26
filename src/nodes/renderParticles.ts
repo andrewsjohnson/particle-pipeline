@@ -2,7 +2,7 @@ import { perspectiveMatrix } from "../utils/perspectiveMatrix.ts";
 import { multiplyMat4 } from "../utils/math.ts";
 import { lookAt } from "../utils/perspectiveMatrix.ts";
 import { GPURenderNode } from "./kinds/render-node.ts";
-import { loadShaderModule } from "../shaders/loadShader.ts";
+import { HotShader, loadShaderModule } from "../shaders/loadShader.ts";
 
 export type ClearMode = "accumulate" | "clear" | "trail";
 export type BlendMode = "additive" | "normal";
@@ -29,11 +29,12 @@ export class RenderParticlesNode extends GPURenderNode {
   private device!: GPUDevice;
   
   // Fade pass resources
+  fadeShader?: HotShader;
   private fadePipeline!: GPURenderPipeline;
   private fadeParamBuffer!: GPUBuffer;
   private fadeBindGroup!: GPUBindGroup;
 
-  onPipelineReady(device: GPUDevice, _ctx: any) {
+  async onPipelineReady(device: GPUDevice, _ctx: any) {
     this.device = device;
     
     // Particle params buffer (MVP matrix)
@@ -51,11 +52,12 @@ export class RenderParticlesNode extends GPURenderNode {
     });
     
     // Initialize fade pipeline
-    this.initFadePipeline(device);
+    await this.initFadePipeline(device);
   }
   
   private async initFadePipeline(device: GPUDevice) {
     const fadeShader = await loadShaderModule(device, "/src/shaders/fade.wgsl");
+    this.fadeShader = fadeShader;
     
     this.fadePipeline = device.createRenderPipeline({
       layout: "auto",
@@ -112,7 +114,7 @@ export class RenderParticlesNode extends GPURenderNode {
       // Normal premultiplied alpha blend
       return {
         color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
-        alpha: { srcFactor: "one", dstFactor: "one" },
+        alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" },
       };
     }
   }
@@ -176,18 +178,18 @@ export class RenderParticlesNode extends GPURenderNode {
         break;
       case "trail":
         // Load existing content, then apply fade pass
-        loadOp = "load";
-        needsFadePass = true;
+        loadOp = ctx.accumulationFrameIndex === 0 ? "clear" : "load";
+        needsFadePass = ctx.accumulationFrameIndex > 0;
         break;
       case "accumulate":
       default:
         // Only clear on first frame, then accumulate
-        loadOp = ctx.frameIndex === 0 ? "clear" : "load";
+        loadOp = ctx.accumulationFrameIndex === 0 ? "clear" : "load";
         break;
     }
     
     // Trail mode: run fade pass first to darken existing content
-    if (needsFadePass && this.fadePipeline && ctx.frameIndex > 0) {
+    if (needsFadePass && this.fadePipeline && ctx.accumulationFrameIndex > 0) {
       // Update fade alpha uniform
       ctx.queue.writeBuffer(this.fadeParamBuffer, 0, new Float32Array([this.trailFade]));
       

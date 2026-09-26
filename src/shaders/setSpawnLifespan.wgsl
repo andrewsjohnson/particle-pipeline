@@ -33,25 +33,10 @@ struct Params {
 var<uniform> P : Params;
 
 ////////////////////////////////////////////////////////////
-// XOROSHIRO32* — single u32 state
+// SHARED COUNTER-BASED RANDOMNESS
 ////////////////////////////////////////////////////////////
 
-fn rotl32(x: u32, k: u32) -> u32 {
-    return (x << k) | (x >> (32u - k));
-}
-
-fn xrs32_next(state: ptr<function, u32>) -> u32 {
-    var x = *state;
-    x ^= x << 7u;
-    x ^= x >> 9u;
-    x ^= x << 8u;
-    *state = x;
-    return rotl32(x * 0x9E3779BBu, 5u);
-}
-
-fn rand_f(state: ptr<function, u32>) -> f32 {
-    return f32(xrs32_next(state)) / 4294967295.0;
-}
+// @include random.wgsl
   
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
@@ -64,7 +49,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
 
     // Set lifetime when particle is freshly spawned (age == 0)
     if (particle.age == 0.0 && particle.alive == 1u) {
-        var state: u32 = (idx ^ P.seed ^ 0x2A7C9E3Du) | 1u;
+        var state: u32 = particle_seed(idx, P.seed, 0x2A7C9E3Du);
         var t = rand_f(&state);
         particle.lifetime = P.minLifespan + t * (P.maxLifespan - P.minLifespan);
     }

@@ -1,17 +1,8 @@
+import { PARTICLE_SIZE } from "../particles/particleLayout.ts";
 import { Pane } from "tweakpane";
-import type { Pipeline } from "../pipeline";
+import type { Pipeline } from "../pipeline.ts";
 
 import { InitializeParticlesNode } from "../nodes/initializeParticles.ts";
-import { SpawnSphereNode } from "../nodes/spawnSphere.ts";
-import { SetSpawnColorNode } from "../nodes/setSpawnColor.ts";
-import { SetSpawnMassNode } from "../nodes/setSpawnMass.ts";
-import { ResetVelNode } from "../nodes/resetVel.ts";
-import { CurlNoiseNode } from "../nodes/curlNoise.ts";
-import { FlockingNode } from "../nodes/flocking.ts";
-import { AttractorNode } from "../nodes/attractor.ts";
-import { IntegratorNode } from "../nodes/integrator.ts";
-import { MinVelKillNode } from "../nodes/minVelKill.ts";
-import { OpacityScaleNode } from "../nodes/opacityScale.ts";
 import { RenderParticlesNode } from "../nodes/renderParticles.ts";
 import { CompositeNode } from "../nodes/composite.ts";
 // import { RenderBokehParticlesNode } from "../nodes/renderBokehParticles.ts";
@@ -20,20 +11,9 @@ import {
   type FolderButtonConfig,
 } from "./folderButtonsPlugin.ts";
 
-type SerializedNode = { type: string; props: Record<string, any> };
-type PipelinePreset = {
-  name: string;
-  sim: { particleCount: number; baseOpacity: number; randomSeed: number };
-  compute: SerializedNode[];
-  render: SerializedNode[];
-};
+import { computeNodeTypes, renderNodeTypes, serializeNode, deserializeNodes, ensureRequiredNodes, validatePreset, type PipelinePreset } from "../presets.ts";
 
 const PRESET_STORAGE_KEY = "particle-pipeline.presets";
-
-const isNumberArray = (v: any): v is number[] =>
-  Array.isArray(v) && v.every((n) => typeof n === "number");
-const isSerializableValue = (v: any) =>
-  typeof v === "number" || typeof v === "string" || typeof v === "boolean" || isNumberArray(v);
 
 type ControlPanelOpts = {
   pipeline: Pipeline;
@@ -78,7 +58,7 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     .addBinding(simSettings, "particleCount", {
       label: "Particles",
       min: 1_000,
-      max: 6_000_000,
+      max: Math.min(6_000_000, Math.floor(pipeline.device.limits.maxStorageBufferBindingSize / PARTICLE_SIZE), Math.floor(pipeline.device.limits.maxBufferSize / PARTICLE_SIZE)),
       step: 1_000,
     })
     .on("change", (ev: any) => {
@@ -131,98 +111,15 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     .on("click", onSaveHdr);
 
   // Node controls
-  const computeNodeTypes = [
-    { key: "init", label: "InitializeParticles", ctor: InitializeParticlesNode },
-    { key: "spawnSphere", label: "SpawnSphere", ctor: SpawnSphereNode },
-    { key: "setSpawnColor", label: "SetSpawnColor", ctor: SetSpawnColorNode },
-    { key: "setSpawnMass", label: "SetSpawnMass", ctor: SetSpawnMassNode },
-    { key: "resetVel", label: "ResetVelocity", ctor: ResetVelNode },
-    { key: "curlNoise", label: "CurlNoise", ctor: CurlNoiseNode },
-    { key: "flocking", label: "Flocking", ctor: FlockingNode },
-    { key: "attractor", label: "Attractor", ctor: AttractorNode },
-    { key: "integrator", label: "Integrator", ctor: IntegratorNode },
-    { key: "minVelKill", label: "MinVelKill", ctor: MinVelKillNode },
-    { key: "opacityScale", label: "OpacityScale", ctor: OpacityScaleNode },
-  ];
-  const renderNodeTypes = [
-    { key: "renderParticles", label: "RenderParticles", ctor: RenderParticlesNode },
-    { key: "composite", label: "Composite", ctor: CompositeNode },
-    // { key: "renderBokeh", label: "RenderBokehParticles", ctor: RenderBokehParticlesNode },
-  ];
   const computeOptions = Object.fromEntries(
     computeNodeTypes.map((t) => [t.label, t.key])
   );
   const renderOptions = Object.fromEntries(
     renderNodeTypes.map((t) => [t.label, t.key])
   );
-  const keyToCtor = new Map<string, any>();
-  const ctorToKey = new Map<any, string>();
-  const computeKeys = new Set<string>();
-  const renderKeys = new Set<string>();
-  computeNodeTypes.forEach((t) => {
-    keyToCtor.set(t.key, t.ctor);
-    ctorToKey.set(t.ctor, t.key);
-    computeKeys.add(t.key);
-  });
-  renderNodeTypes.forEach((t) => {
-    keyToCtor.set(t.key, t.ctor);
-    ctorToKey.set(t.ctor, t.key);
-    renderKeys.add(t.key);
-  });
   const addState = {
     compute: computeNodeTypes[0].key,
     render: renderNodeTypes[0].key,
-  };
-
-  const ensureRequiredNodes = (compute: any[], render: any[]) => {
-    if (!compute.some((n) => n.constructor === InitializeParticlesNode)) {
-      compute.unshift(new InitializeParticlesNode());
-    }
-    if (!compute.some((n) => n.constructor.name.startsWith("Spawn"))) {
-      compute.splice(1, 0, new SpawnSphereNode());
-    }
-    if (!render.some((n) => n.constructor === RenderParticlesNode)) {
-      render.unshift(new RenderParticlesNode());
-    }
-    if (!render.some((n) => n.constructor === CompositeNode)) {
-      render.push(new CompositeNode());
-    }
-  };
-
-  const serializeNode = (node: any): SerializedNode | null => {
-    const type = ctorToKey.get(node.constructor as any);
-    if (!type) return null;
-
-    const props: Record<string, any> = {};
-    for (const [key, value] of Object.entries(node)) {
-      if (!isSerializableValue(value)) continue;
-      props[key] = isNumberArray(value) ? [...value] : value;
-    }
-
-    return { type, props };
-  };
-
-  const deserializeNodes = (serialized: SerializedNode[], stage: "compute" | "render") => {
-    const nodes: any[] = [];
-    for (const node of serialized) {
-      const ctor = keyToCtor.get(node.type);
-      if (!ctor) continue;
-      const isCompute = computeKeys.has(node.type);
-      if ((stage === "compute" && !isCompute) || (stage === "render" && isCompute)) {
-        continue;
-      }
-
-      const instance: any = new ctor();
-      for (const [key, value] of Object.entries(node.props ?? {})) {
-        if (isNumberArray(value)) {
-          instance[key] = [...value];
-        } else if (isSerializableValue(value)) {
-          (instance as any)[key] = value as any;
-        }
-      }
-      nodes.push(instance);
-    }
-    return nodes;
   };
 
   const loadPresetStore = () => {
@@ -278,6 +175,7 @@ export function buildControlPanel(opts: ControlPanelOpts) {
   refreshPresetSelect();
 
   const buildPreset = (name: string): PipelinePreset => ({
+    version: 2,
     name,
     sim: {
       particleCount: pipeline.particleCount,
@@ -285,13 +183,12 @@ export function buildControlPanel(opts: ControlPanelOpts) {
       randomSeed: pipeline.randomSeed,
     },
     compute: pipeline.computeNodes
-      .map((n) => serializeNode(n))
-      .filter(Boolean) as SerializedNode[],
+      .map((n) => serializeNode(n)),
     render: pipeline.renderNodes
-      .map((n) => serializeNode(n))
-      .filter(Boolean) as SerializedNode[],
+      .map((n) => serializeNode(n)),
   });
 
+  let loadingPreset = false;
   const applyPreset = async (presetName: string) => {
     if (!presetName) {
       alert("Select a preset to load.");
@@ -303,17 +200,26 @@ export function buildControlPanel(opts: ControlPanelOpts) {
       return;
     }
 
+    validatePreset(preset);
+    pipeline.validateParticleCount(preset.sim.particleCount);
+    const compute = deserializeNodes(preset.compute, "compute", preset.version === undefined);
+    const render = deserializeNodes(preset.render, "render", preset.version === undefined);
+    ensureRequiredNodes(compute, render);
+    const activeComposite = pipeline.renderNodes.find((node) => node instanceof CompositeNode) as CompositeNode;
+    for (const node of render) {
+      if (node instanceof CompositeNode) {
+        node.targetFormat = activeComposite.targetFormat;
+        node.applyToneMap = activeComposite.applyToneMap;
+      }
+    }
+    // Initialize first; a failed shader compile leaves the current scene intact.
+    await pipeline.setNodes(compute as any, render as any);
     pipeline.setParticleCount(preset.sim.particleCount);
     pipeline.setBaseOpacity(preset.sim.baseOpacity);
     pipeline.setRandomSeed(preset.sim.randomSeed ?? pipeline.randomSeed);
     simSettings.particleCount = pipeline.particleCount;
     simSettings.baseOpacity = pipeline.baseOpacity;
     simSettings.randomSeed = pipeline.randomSeed;
-
-    const compute = deserializeNodes(preset.compute, "compute");
-    const render = deserializeNodes(preset.render, "render");
-    ensureRequiredNodes(compute, render);
-    await pipeline.setNodes(compute, render);
     (pane as any).refresh?.();
   };
 
@@ -321,7 +227,9 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     .addBlade({ view: "button", label: "Save", title: "Save preset" })
     .on("click", () => {
       const name = presetState.name.trim() || "Preset";
-      const preset = buildPreset(name);
+      let preset: PipelinePreset;
+      try { preset = buildPreset(name); }
+      catch (error) { alert(String(error)); return; }
       presetStore[name] = preset;
       presetState.selected = name;
       savePresetStore(presetStore);
@@ -330,7 +238,11 @@ export function buildControlPanel(opts: ControlPanelOpts) {
   presetFolder
     .addBlade({ view: "button", label: "Load", title: "Load selected preset" })
     .on("click", async () => {
-      await applyPreset(presetState.selected);
+      if (loadingPreset) return;
+      loadingPreset = true;
+      try { await applyPreset(presetState.selected); }
+      catch (error) { alert(`Unable to load preset: ${error instanceof Error ? error.message : error}`); }
+      finally { loadingPreset = false; }
     });
   presetFolder
     .addBlade({ view: "button", label: "Delete", title: "Delete selected preset" })
@@ -365,7 +277,7 @@ export function buildControlPanel(opts: ControlPanelOpts) {
           alert("InitializeParticlesNode is already present (only one allowed).");
           return;
         }
-        await pipeline.addNodeAndInit(new ctor());
+        await pipeline.addNodeAndInit(new ctor() as any);
       }
     });
   addFolder
@@ -375,7 +287,8 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     .on("click", async () => {
       const ctor = renderNodeTypes.find((t) => t.key === addState.render)?.ctor;
       if (ctor) {
-        await pipeline.addNodeAndInit(new ctor());
+        if (pipeline.renderNodes.some((node) => node.constructor === ctor)) return;
+        await pipeline.addNodeAndInit(new ctor() as any);
       }
     });
 
