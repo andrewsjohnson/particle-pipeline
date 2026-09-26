@@ -1,4 +1,4 @@
-import { GPUComputeNode } from "./kinds/compute-node";
+import { GPUComputeNode } from "./kinds/compute-node.ts";
 
 export class OpacityScaleNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/opacityScale.wgsl";

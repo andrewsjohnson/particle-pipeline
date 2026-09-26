@@ -1,14 +1,16 @@
-import { HotShader, loadShaderModule } from "../../shaders/loadShader";
+import { HotShader, loadShaderModule } from "../../shaders/loadShader.ts";
   
 
 export abstract class GPUNode {
     abstract stage: GPUNodeStage;
     static shaderPath: string;
 
+    ready = false;
     shader!: HotShader;
     pipeline!: GPUPipelineBase;
 
     async init(device: GPUDevice, ctx: any) {
+        this.ready = false;
         const slf = this.constructor as any;
         const shaderPath = slf.shaderPath;
         
@@ -22,14 +24,31 @@ export abstract class GPUNode {
         this.pipeline = this.createPipeline(device, this.shader.module!);
     
         // call node-specific setup
-        this.onPipelineReady(device, ctx);
+        await this.onPipelineReady(device, ctx);
+        this.ready = true;
 
         // Hot reload
-        this.shader.onReload((module) => {
+        this.shader.onReload(async (module) => {
+            this.ready = false;
             console.log(`🔥 Shader recompiled: ${shaderPath}`);
             this.pipeline = this.createPipeline(device, module);
-            this.onPipelineReady(device, ctx);
+            this.releaseResources();
+            await this.onPipelineReady(device, ctx);
+            this.ready = true;
         })
+    }
+
+    private releaseResources() {
+        for (const resource of Object.values(this)) {
+            if (typeof GPUBuffer !== "undefined" && resource instanceof GPUBuffer) resource.destroy();
+            if (resource instanceof HotShader && resource !== this.shader) resource.dispose();
+        }
+    }
+
+    dispose() {
+        this.ready = false;
+        this.releaseResources();
+        this.shader?.dispose();
     }
 
     /** Must be implement: how to create the pipeline */
@@ -39,7 +58,7 @@ export abstract class GPUNode {
      * use this to create any resources that need to be created
      * after the pipeline is created, like param buffers, samplers, etc.
      */
-    abstract onPipelineReady(device: GPUDevice, ctx: any): void;
+    abstract onPipelineReady(device: GPUDevice, ctx: any): void | Promise<void>;
 
     /**
      * Override this for bindGroups + dispatch/draw

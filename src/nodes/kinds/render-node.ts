@@ -1,6 +1,8 @@
-import { GPUNode, type GPUNodeStage } from "./base";
+import { GPUNode, type GPUNodeStage } from "./base.ts";
 
 export abstract class GPURenderNode extends GPUNode {
+    /** Presentation nodes run once per display refresh, without adding samples. */
+    presentationOnly = false;
     declare pipeline: GPURenderPipeline;
     stage: GPUNodeStage = "render";
     static shaderPath: string;

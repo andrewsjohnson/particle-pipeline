@@ -1,4 +1,4 @@
-import { PARTICLE_SIZE } from "../particles/particleLayout";
+import { PARTICLE_SIZE } from "../particles/particleLayout.ts";
 
 export async function readGPUBuffer(device: GPUDevice, src: GPUBuffer, size: number) {
     const readBuffer = device.createBuffer({

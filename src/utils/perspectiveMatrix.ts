@@ -1,7 +1,8 @@
 import { type Vec3, safeNormalize, subVec3, cross, dot } from "./math.ts";
 
-export function perspectiveMatrix(fov: number, aspect: number, near: number, far: number) {
-    const f = 1 / Math.tan(fov/2);
+export function perspectiveMatrix(fovDegrees: number, aspect: number, near: number, far: number) {
+    // Public camera angles are degrees; the matrix uses WebGPU depth [0, 1].
+    const f = 1 / Math.tan(fovDegrees * Math.PI / 360);
     return new Float32Array([
         f/aspect, 0, 0, 0,
         0, f, 0, 0,

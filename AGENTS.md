@@ -43,7 +43,8 @@ Update `AGENTS.md` when you:
 
 - **Node-based pipeline architecture**: Modular compute and render nodes that process particles
 - **HDR rendering**: 32-bit float accumulation buffer with tonemapping
-- **Hot-reloading shaders**: WGSL shaders reload automatically during development
+- **Bundled shaders**: WGSL raw imports work in production and hot reload during development
+- **Fixed-step simulation**: 60 Hz simulation/accumulation is independent of screen refresh
 - **Tweakpane UI**: Real-time parameter adjustment with save/load presets
 
 ### Tech Stack
@@ -61,6 +62,7 @@ Update `AGENTS.md` when you:
 ```bash
 pnpm install
 pnpm dev    # Start dev server (default: http://localhost:5173)
+npm run check  # CPU regressions + TypeScript + production bundle
 ```
 
 ---
@@ -102,6 +104,8 @@ pnpm dev    # Start dev server (default: http://localhost:5173)
 src/
 ├── main.ts                 # Entry point, initializes WebGPU and pipeline
 ├── pipeline.ts             # Core Pipeline class
+├── presets.ts              # Shared node registry and versioned serialization
+├── simulation/fixedStep.ts # Bounded 60 Hz scheduler
 ├── nodes/
 │   ├── kinds/
 │   │   ├── base.ts         # GPUNode abstract base class
@@ -163,12 +167,12 @@ struct Particle {
 
 ### Particle Lifecycle
 
-1. **Frame 0**: `InitializeParticlesNode` sets all particles to `alive=0, needsRespawn=1`
+1. **Frame 0**: `InitializeParticlesNode` sets all particles to `alive=1, needsRespawn=1`
 2. **Spawn nodes** (e.g., `SpawnSphereNode`) check `needsRespawn=1` and set position, velocity, `alive=1`, `needsRespawn=0`, `age=0`
 3. **SetSpawn* nodes** check `age=0 && alive=1` to configure newly spawned particles
 4. **Force nodes** modify velocity (curl noise, attractors, etc.)
 5. **IntegratorNode** updates position from velocity, increments age
-6. **Kill nodes** set `alive=0, needsRespawn=1` when conditions met (lifetime exceeded, velocity too low, etc.)
+6. **Kill nodes** set `alive=1, needsRespawn=1` when conditions met (lifetime exceeded, velocity too low, etc.)
 7. Cycle repeats—spawn nodes pick up respawning particles
 
 ---
@@ -183,7 +187,7 @@ Create `src/nodes/myEffect.ts`:
 import { GPUComputeNode } from "./kinds/compute-node.ts";
 
 export class MyEffectNode extends GPUComputeNode {
-  // Path to WGSL shader (relative to project root, served by Vite)
+  // Stable shader identifier; loadShader resolves it from bundled raw imports
   static shaderPath: string = "/src/shaders/myEffect.wgsl";
   
   // Node parameters (exposed to UI)
@@ -205,7 +209,7 @@ export class MyEffectNode extends GPUComputeNode {
   onPipelineReady(device: GPUDevice, _ctx: any) {
     this.paramBuffer = device.createBuffer({
       label: "myEffect.params",
-      size: 4 * 4,  // 16 bytes minimum for uniforms
+      size: 4 * 4,  // match the WGSL Params layout
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
   }
@@ -315,9 +319,9 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 }
 ```
 
-### Step 3: Register in Control Panel
+### Step 3: Register for the Editor and Presets
 
-Add to `src/ui/controlPanel.ts`:
+Add to `src/presets.ts`:
 
 ```typescript
 import { MyEffectNode } from "../nodes/myEffect.ts";
@@ -325,7 +329,7 @@ import { MyEffectNode } from "../nodes/myEffect.ts";
 // In computeNodeTypes array:
 const computeNodeTypes = [
   // ...existing nodes...
-  { key: "myEffect", label: "MyEffect", ctor: MyEffectNode },
+  { key: "myEffect", label: "MyEffect", ctor: MyEffectNode, properties: ["strength"] },
 ];
 ```
 
@@ -394,8 +398,9 @@ The `ctx` object passed to `record()` contains:
 | `particleSrc` | `GPUBuffer` | Current particle buffer (read) |
 | `particleDst` | `GPUBuffer` | Destination particle buffer (write) |
 | `particleCount` | `number` | Total particles |
-| `frameIndex` | `number` | Current frame (0 = first frame) |
-| `deltaTime` | `number` | Seconds since last frame |
+| `frameIndex` | `number` | Simulation step index (0 = initialization step) |
+| `accumulationFrameIndex` | `number` | Image sample index; resets separately when resized |
+| `deltaTime` | `number` | Fixed 1/60 second simulation timestep; 0 for presentation |
 | `randomSeed` | `number` | Global random seed (u32) |
 | `baseOpacity` | `number` | Global opacity multiplier |
 | `renderWidth` | `number` | Canvas width in pixels |
@@ -440,8 +445,12 @@ pipeline.setBaseOpacity(0.001);
 pipeline.setRandomSeed(12345);
 pipeline.resetSimulation();
 
-// Each frame
+// Each display refresh (schedules bounded fixed steps and presents)
 pipeline.frame(deltaTime);
+// While paused, or for deterministic offline rendering:
+pipeline.step();     // exactly one simulation + accumulation step
+pipeline.present();  // display only
+pipeline.resetClock(); // discard fractional wall time after pause/visibility change
 ```
 
 ---
@@ -450,29 +459,14 @@ pipeline.frame(deltaTime);
 
 ### Random Number Generation in WGSL
 
-Use the XORSHIFT RNG pattern seen in existing shaders:
+Randomized shaders include the shared counter/hash implementation. Never force the low seed bit with `| 1u`: that collapses adjacent particle IDs into identical trajectories. Zero is a valid internal RNG state. Use separate stream constants for unrelated attributes.
 
 ```wgsl
-fn rotl32(x: u32, k: u32) -> u32 {
-    return (x << k) | (x >> (32u - k));
-}
+// @include random.wgsl
 
-fn xrs32_next(state: ptr<function, u32>) -> u32 {
-    var x = *state;
-    x ^= x << 7u;
-    x ^= x >> 9u;
-    x ^= x << 8u;
-    *state = x;
-    return rotl32(x * 0x9E3779BBu, 5u);
-}
-
-fn rand_f(state: ptr<function, u32>) -> f32 {
-    return f32(xrs32_next(state)) / 4294967295.0;
-}
-
-// Usage in main():
-var state: u32 = (idx ^ P.seed ^ 0x1F123BB5u) | 1u;
-let r = rand_f(&state);  // 0.0 to 1.0
+// In main():
+var state = particle_seed(idx, P.seed, 0x3C6EF372u);
+let r = rand_f(&state); // [0, 1), using exactly representable 24-bit samples
 ```
 
 ### Checking Particle State
@@ -503,15 +497,7 @@ record(encoder: GPUCommandEncoder, ctx: any) {
 
 ### Uniform Buffer Sizing
 
-WebGPU requires uniform buffers to be at least 16 bytes and aligned to 16-byte boundaries:
-
-```typescript
-// Minimum 16 bytes even for single float
-this.paramBuffer = device.createBuffer({
-  size: Math.max(16, requiredSize),
-  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-});
-```
+Uniform buffers must match the WGSL struct's alignment, offsets, and total size. A scalar-only struct can use four bytes; structs containing vectors often require additional padding. Do not infer layout by simply counting source fields.
 
 ---
 
@@ -581,11 +567,11 @@ Some nodes are required and cannot be removed:
 
 5. **Workgroup size is 256**: Dispatch `Math.ceil(particleCount / 256)` workgroups.
 
-6. **Random seed**: Pass `ctx.randomSeed` to shaders. XOR with particle `idx` and a magic constant for per-particle randomness.
+6. **Random seed**: Use `particle_seed` and `rand_f` from `random.wgsl`; do not discard particle-ID bits.
 
 7. **HDR format**: Render target is `rgba32float`. Colors can exceed 1.0. Tonemapping happens in composite.
 
-8. **Lower epsilon in CurlNoise** = more accurate curl field. Higher (1+) = "tendril-y" effect with particles spiraling.
+8. **Curl epsilon**: Smaller is not always more accurate in float32; tiny finite differences lose precision. Default is 0.001. Normalizing curl is an artistic option and generally destroys the divergence-free guarantee.
 
 ---
 
@@ -596,7 +582,7 @@ Some nodes are required and cannot be removed:
 | Add compute node | `src/nodes/kinds/compute-node.ts`, any existing node (e.g., `drag.ts`) |
 | Add render node | `src/nodes/kinds/render-node.ts`, `renderParticles.ts` |
 | Modify particle struct | `src/particles/particleLayout.ts`, then ALL `.wgsl` files |
-| Add UI controls | Node's `buildUI()` method, `src/ui/controlPanel.ts` |
+| Add UI controls | Node's `buildUI()` method; register serializable parameters in `src/presets.ts` |
 | Pipeline management | `src/pipeline.ts` |
 | Entry point | `src/main.ts` |
 
@@ -612,3 +598,16 @@ See `TODO.md` for planned features including:
 - Camera controls
 - Additional lifecycle nodes (SetAlphaOverLifetime, etc.)
 
+
+## Foundation regression checks
+
+- `npm run check` runs CPU timing/camera/preset tests, type checking, and the production build.
+- `/tests/gpu.html` under Vite runs small WebGPU readback tests and checks the control panel. Keep GPU tests separate from claims about performance on physical hardware.
+- `GPURenderNode.presentationOnly` distinguishes display composites from accumulating renderers. Presentation must not deposit particle samples.
+- Renderers clear based on `ctx.accumulationFrameIndex`, not the simulation index. Reset clears the texture immediately, including in trail mode while paused.
+- Submit each simulation step independently: repeated `queue.writeBuffer` calls in one submission otherwise make earlier dispatches see later uniform values.
+- `GPUNode.ready` prevents simulation during asynchronous shader setup. Removed/replaced nodes dispose buffers and shader subscriptions.
+- Preset schemas contain explicit editable parameters, not arbitrary enumerable runtime fields. Unknown node types throw. Drag and lifespan must remain registered.
+- Apply display format/tone mapping from the active composite when loading presets. HDR toggles look up the current nodes rather than a captured original instance.
+- The public projection helper takes field of view in degrees and produces WebGPU depth in [0, 1].
+- Legacy presets cannot reconstruct parameters omitted by older serializers. Corrected seeds/camera mean legacy scenes are not pixel-identical.

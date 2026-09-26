@@ -1,18 +1,23 @@
-import { GPUComputeNode } from "./kinds/compute-node";
+import { GPUComputeNode } from "./kinds/compute-node.ts";
 
 export class CurlNoiseNode extends GPUComputeNode {
   static shaderPath: string = "/src/shaders/curl.wgsl";
   paramBuffer!: GPUBuffer;
 
+  mode: "velocity" | "force" | "legacy" = "velocity";
+  normalizeField = true;
+
   fieldScale: number = 0.6; // field scale
   strength: number = 0.25; // strength of the curl noise
-  eps: number = 0.00001; // epsilon value
+  eps: number = 0.001; // epsilon value
   octaves: number = 8; // number of octaves
   lacunarity: number = 1.6; // frequency multiplier
   gain: number = 0.5; // amplitude multiplier
 
   buildUI(pane: any) {
     const p = pane as any;
+    p.addBinding(this, "mode", { label: "Motion", options: { "Follow flow": "velocity", "Apply force": "force", "Legacy per-step": "legacy" } });
+    p.addBinding(this, "normalizeField", { label: "Normalize field" });
     p.addBinding(this, "fieldScale", { label: "Field Scale", min: 0, max: 5 });
     p.addBinding(this, "strength", { label: "Strength", min: 0, max: 5 });
     p.addBinding(this, "eps", { label: "Epsilon", min: 0.000001, max: 1.0 });
@@ -44,7 +49,8 @@ export class CurlNoiseNode extends GPUComputeNode {
     f32[4] = this.octaves;
     f32[5] = this.lacunarity;
     f32[6] = this.gain;
-    f32[7] = 0;
+    u32[7] = this.mode === "velocity" ? 0 : this.mode === "force" ? 1 : 2;
+    u32[9] = this.normalizeField ? 1 : 0;
     u32[8] = (ctx.randomSeed ?? 1) >>> 0;
     ctx.queue.writeBuffer(this.paramBuffer, 0, buf);
     return true;

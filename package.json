@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run build"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
@@ -15,5 +17,8 @@
   "dependencies": {
     "@webgpu/types": "^0.1.66",
     "tweakpane": "^4.0.4"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

@@ -1,6 +1,7 @@
-import { GPURenderNode } from "./kinds/render-node";
+import { GPURenderNode } from "./kinds/render-node.ts";
 
 export class CompositeNode extends GPURenderNode {
+  presentationOnly = true;
   enabled = true;
   targetFormat: GPUTextureFormat = "rgba16float";
   applyToneMap = true;

@@ -84,7 +84,7 @@ export class RenderBokehParticlesNode extends GPURenderNode {
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
         view: ctx.particleRenderTarget,
-        loadOp: ctx.frameIndex === 0 ? "clear" : "load",
+        loadOp: ctx.accumulationFrameIndex === 0 ? "clear" : "load",
         clearValue: { r: 0, g: 0, b: 0, a: 0 },
         storeOp: "store",
       }],
