@@ -52,6 +52,13 @@ export abstract class GPUNode {
         }
     }
 
+    /** Offline jobs freeze compiled modules so HMR cannot mix shader versions across tiles. */
+    freezeShaders() {
+        for (const resource of Object.values(this)) {
+            if (resource instanceof HotShader) resource.dispose();
+        }
+    }
+
     dispose() {
         this.ready = false;
         this.releaseResources();
