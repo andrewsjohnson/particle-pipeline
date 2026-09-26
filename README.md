@@ -2,6 +2,14 @@
 
 A TypeScript/WebGPU particle-art playground with editable compute nodes, floating-point accumulation, and EXR/Radiance HDR export.
 
+## View online
+
+GitHub Pages URL (after the first successful deployment): **https://andrewsjohnson.github.io/particle-pipeline/**
+
+`.github/workflows/pages.yml` tests and builds pull requests, then publishes `dist/` on every push to `master`. For initial setup, select **Settings → Pages → Build and deployment → Source → GitHub Actions**. If setup happens after a failed deployment, rerun the **GitHub Pages** workflow from Actions. A private repository requires a GitHub plan that supports Pages; the standard Pages site is public.
+
+The hosted app requires the same WebGPU features listed below. Production builds and `pnpm preview` use `/particle-pipeline/`; local development stays at `/`. Presets are stored per browser origin, so localhost presets do not automatically appear on the hosted site.
+
 ## Run
 
 Use Node.js 22.18+ and a browser/GPU supporting WebGPU's `float32-filterable` and `float32-blendable` features.
