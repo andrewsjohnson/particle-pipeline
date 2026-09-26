@@ -1,7 +1,13 @@
+import { BindGroupCache } from "../../utils/bindGroupCache.ts";
 import { HotShader, loadShaderModule } from "../../shaders/loadShader.ts";
   
 
 export abstract class GPUNode {
+    private readonly bindings = new BindGroupCache();
+    protected bindGroup(device: GPUDevice, pipeline: GPUPipelineBase, entries: GPUBindGroupEntry[]) {
+        return this.bindings.get(device, pipeline, entries);
+    }
+
     abstract stage: GPUNodeStage;
     static shaderPath: string;
 
@@ -39,6 +45,7 @@ export abstract class GPUNode {
     }
 
     private releaseResources() {
+        this.bindings.clear();
         for (const resource of Object.values(this)) {
             if (typeof GPUBuffer !== "undefined" && resource instanceof GPUBuffer) resource.destroy();
             if (resource instanceof HotShader && resource !== this.shader) resource.dispose();

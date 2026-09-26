@@ -32,6 +32,7 @@ export class Pipeline {
 
     frameIndex = 0;
     accumulationFrameIndex = 0;
+    private imageSignature: string | undefined;
     private clock = new FixedStepClock();
     private nodeListeners: Array<() => void> = [];
     private initialized = false;
@@ -186,6 +187,8 @@ export class Pipeline {
             particleSrc: this.particleA,
             particleDst: this.particleB,
             particleCount: this.particleCount,
+            renderTextureWidth: this.renderTextureWidth,
+            renderTextureHeight: this.renderTextureHeight,
             renderWidth: this.ctx.canvas.width,
             renderHeight: this.ctx.canvas.height,
             baseOpacity: this.baseOpacity,
@@ -212,6 +215,7 @@ export class Pipeline {
     /** Exactly one deterministic step, also used for offline rendering. */
     step() {
         if (![...this.computeNodes, ...this.renderNodes].every((node) => node.ready)) return;
+        this.syncImageSignature();
         const dt = SIMULATION_STEP;
         const encoder = this.device.createCommandEncoder();
         const ctx = this._contextFrame(dt);
@@ -240,7 +244,30 @@ export class Pipeline {
         this.accumulationFrameIndex++;
     }
 
+    private syncImageSignature() {
+        const signature = `${this.renderTextureWidth}x${this.renderTextureHeight}|` + this.renderNodes.map(node => node.imageSignature()).join("|");
+        const changed = this.imageSignature !== undefined && signature !== this.imageSignature;
+        this.imageSignature = signature;
+        if (changed) this.accumulationFrameIndex = 0;
+        return changed;
+    }
+
+    /** Replace the accumulated image with the current state, without a physics step. */
+    renderCurrentState() {
+        if (!this.frameIndex || !this.renderNodes.every(node => node.ready)) return;
+        this.syncImageSignature();
+        this.accumulationFrameIndex = 0;
+        const encoder = this.device.createCommandEncoder();
+        const ctx = this._contextFrame(0);
+        for (const node of this.renderNodes) {
+            if (!node.presentationOnly) node.record(encoder, ctx);
+        }
+        this.device.queue.submit([encoder.finish()]);
+        this.accumulationFrameIndex = 1;
+    }
+
     present() {
+        if (this.renderNodes.every(node => node.ready) && this.syncImageSignature()) this.renderCurrentState();
         const encoder = this.device.createCommandEncoder();
         const ctx = this._contextFrame(0, true);
         for (const node of this.renderNodes) {

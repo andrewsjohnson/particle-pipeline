@@ -1,3 +1,5 @@
+import { BindGroupCache } from "../src/utils/bindGroupCache.ts";
+import { checkRenderer } from "./renderer.gpu.ts";
 import { Pipeline } from '../src/pipeline.ts';
 import { computeNodeTypes, serializeNode, deserializeNodes } from '../src/presets.ts';
 import { InitializeParticlesNode } from '../src/nodes/initializeParticles.ts';
@@ -21,6 +23,9 @@ async function run() {
   const features: GPUFeatureName[] = ['float32-filterable', 'float32-blendable'];
   assert(features.every(feature => adapter.features.has(feature)), 'Float32 render features unavailable');
   const device = await adapter.requestDevice({requiredFeatures: features});
+  let bindGroupCreations = 0;
+  const createBindGroup = device.createBindGroup.bind(device);
+  device.createBindGroup = descriptor => {bindGroupCreations++; return createBindGroup(descriptor);};
   const errors: string[] = [];
   device.lost.then(info=>console.error('GPU device lost',info.reason,info.message));
   device.addEventListener('uncapturederror', event => errors.push(event.error.message));
@@ -72,6 +77,22 @@ async function run() {
   const second=await runSteps();
   assert(new Uint8Array(first.buffer).every((byte,i)=>byte===new Uint8Array(second.buffer)[i]),'Seeded simulation is not repeatable');
 
+  // Warm both ping-pong buffer combinations, then count actual WebGPU allocations.
+  for(let i=0;i<4;i++) {pipeline.step(); pipeline.present();}
+  const bindingsBefore=bindGroupCreations;
+  for(let i=0;i<20;i++) {pipeline.step(); pipeline.present();}
+  const steadyStateBindings=bindGroupCreations-bindingsBefore;
+  assert(steadyStateBindings===0, `Steady-state frames created ${steadyStateBindings} bind groups`);
+
+  const cachedGet = BindGroupCache.prototype.get;
+  const uncachedBefore=bindGroupCreations;
+  try {
+    BindGroupCache.prototype.get = (device,pipeline,entries) => device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries});
+    for(let i=0;i<20;i++) {pipeline.step(); pipeline.present();}
+  } finally { BindGroupCache.prototype.get = cachedGet; }
+  const uncachedBindings=bindGroupCreations-uncachedBefore;
+  assert(uncachedBindings===160, `Unexpected uncached allocation count: ${uncachedBindings}`);
+
   // Presentation refreshes must not accumulate samples or move particles.
   const before = await pipeline.readHDRTexture();
   const frames=pipeline.frameIndex;
@@ -97,10 +118,11 @@ async function run() {
   pipeline.step(); pipeline.present();
   buildControlPanel({pipeline,simState:{paused:true},hdrEnabled:false,onPauseChange:()=>{},onReset:()=>pipeline.resetSimulation(),onSaveExr:async()=>{},onSaveHdr:async()=>{},onToggleHdr:()=>{}});
 
+  const renderer = await checkRenderer(device,ctx);
   await device.queue.onSubmittedWorkDone();
   await new Promise(resolve=>setTimeout(resolve,100));
   assert(errors.length===0,errors.join('\n'));
-  return {passed:true,checks:['all compute shaders','distinct adjacent particles','repeatable seeded steps','presentation does not accumulate','resize preserves simulation','trail reset','GPU preset round-trip','control panel'],presentation:offscreen?'offscreen GPU texture':'canvas',adapter:adapter.info.description};
+  return {passed:true,renderer,steadyStateBindings,uncachedBindings,checks:['all compute shaders','distinct adjacent particles','repeatable seeded steps','presentation does not accumulate','resize preserves simulation','trail reset','GPU preset round-trip','control panel'],presentation:offscreen?'offscreen GPU texture':'canvas',adapter:adapter.info.description};
 }
 
 run().then(result=>{

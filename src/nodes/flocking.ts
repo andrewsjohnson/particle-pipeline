@@ -159,34 +159,25 @@ export class FlockingNode extends GPUComputeNode {
     const cellCount = this.cellCount;
 
     // Bind groups per pipeline (layouts are entrypoint-specific).
-    const clearBindGroup = ctx.device.createBindGroup({
-      layout: this.clearPipeline.getBindGroupLayout(0),
-      entries: [
+    const clearBindGroup = this.bindGroup(ctx.device, this.clearPipeline, [
         { binding: 2, resource: { buffer: this.paramBuffer } },
         { binding: 3, resource: { buffer: this.gridCounts } },
-      ],
-    });
+      ]);
 
-    const binBindGroup = ctx.device.createBindGroup({
-      layout: this.binPipeline.getBindGroupLayout(0),
-      entries: [
+    const binBindGroup = this.bindGroup(ctx.device, this.binPipeline, [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 2, resource: { buffer: this.paramBuffer } },
         { binding: 3, resource: { buffer: this.gridCounts } },
         { binding: 4, resource: { buffer: this.gridIndices } },
-      ],
-    });
+      ]);
 
-    const mainBindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const mainBindGroup = this.bindGroup(ctx.device, this.pipeline, [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 1, resource: { buffer: ctx.particleDst } },
         { binding: 2, resource: { buffer: this.paramBuffer } },
         { binding: 3, resource: { buffer: this.gridCounts } },
         { binding: 4, resource: { buffer: this.gridIndices } },
-      ],
-    });
+      ]);
 
     // 1) Clear grid counts.
     {

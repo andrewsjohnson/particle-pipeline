@@ -54,9 +54,7 @@ export class SpawnSphereNode extends GPUComputeNode {
     this.baseOpacity = ctx.baseOpacity;
     this.updateParams(ctx);
 
-    const bindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const bindGroup = this.bindGroup(ctx.device, this.pipeline, [
         {
           binding: 0,
           resource: { buffer: ctx.particleSrc },
@@ -69,8 +67,7 @@ export class SpawnSphereNode extends GPUComputeNode {
           binding: 2,
           resource: { buffer: this.paramBuffer },
         },
-      ],
-    });
+      ]);
 
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.pipeline);

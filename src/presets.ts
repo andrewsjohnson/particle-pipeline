@@ -51,7 +51,7 @@ export const computeNodeTypes: NodeDefinition[] = [
   { key: "opacityScale", label: "OpacityScale", ctor: OpacityScaleNode, properties: ["fadeInTime", "power"] },
 ];
 export const renderNodeTypes: NodeDefinition[] = [
-  { key: "renderParticles", label: "RenderParticles", ctor: RenderParticlesNode, properties: ["clearMode", "trailFade", "blendMode"], enums: { clearMode: ["accumulate", "clear", "trail"], blendMode: ["normal", "additive"] } },
+  { key: "renderParticles", label: "RenderParticles", ctor: RenderParticlesNode, properties: ["clearMode", "trailFade", "blendMode", "renderMode", "cameraPosition", "cameraTarget", "fovDegrees", "focusDistance", "fStop", "depthOfField", "metersPerUnit", "splatSigma", "maxSplatSigma"], enums: { renderMode: ["points", "splats"], clearMode: ["accumulate", "clear", "trail"], blendMode: ["normal", "additive"] } },
   { key: "composite", label: "Composite", ctor: CompositeNode, properties: ["enabled"] },
 ];
 const definitions = [...computeNodeTypes, ...renderNodeTypes];

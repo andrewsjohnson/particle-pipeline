@@ -123,7 +123,7 @@ src/
 │   ├── integrator.ts       # Update position from velocity
 │   ├── minVelKill.ts       # Kill slow particles
 │   ├── opacityScale.ts     # Modify particle opacity over lifetime
-│   ├── renderParticles.ts  # Render particles as points to HDR
+│   ├── renderParticles.ts  # Render points or normalized Gaussian splats to HDR
 │   └── composite.ts        # Composite HDR to canvas with tonemapping
 ├── shaders/
 │   ├── loadShader.ts       # Hot-reloading shader loader
@@ -172,7 +172,7 @@ struct Particle {
 3. **SetSpawn* nodes** check `age=0 && alive=1` to configure newly spawned particles
 4. **Force nodes** modify velocity (curl noise, attractors, etc.)
 5. **IntegratorNode** updates position from velocity, increments age
-6. **Kill nodes** set `alive=1, needsRespawn=1` when conditions met (lifetime exceeded, velocity too low, etc.)
+6. **Kill nodes** set `alive=0, needsRespawn=1` when conditions met (lifetime exceeded, velocity too low, etc.)
 7. Cycle repeats—spawn nodes pick up respawning particles
 
 ---
@@ -324,7 +324,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 Add to `src/presets.ts`:
 
 ```typescript
-import { MyEffectNode } from "../nodes/myEffect.ts";
+import { MyEffectNode } from "./nodes/myEffect.ts";
 
 // In computeNodeTypes array:
 const computeNodeTypes = [
@@ -405,6 +405,8 @@ The `ctx` object passed to `record()` contains:
 | `baseOpacity` | `number` | Global opacity multiplier |
 | `renderWidth` | `number` | Canvas width in pixels |
 | `renderHeight` | `number` | Canvas height in pixels |
+| `renderTextureWidth` | `number` | Actual HDR target width (2x canvas) |
+| `renderTextureHeight` | `number` | Actual HDR target height (2x canvas) |
 | `particleRenderTarget` | `GPUTextureView` | HDR accumulation texture (for render nodes) |
 | `canvasView` | `GPUTextureView` | Swapchain texture (for composite node) |
 
@@ -449,7 +451,8 @@ pipeline.resetSimulation();
 pipeline.frame(deltaTime);
 // While paused, or for deterministic offline rendering:
 pipeline.step();     // exactly one simulation + accumulation step
-pipeline.present();  // display only
+pipeline.present();  // display; redraw frozen particles if camera/target size changed
+pipeline.renderCurrentState(); // replace accumulated image with a snapshot, no simulation
 pipeline.resetClock(); // discard fractional wall time after pause/visibility change
 ```
 
@@ -611,3 +614,12 @@ See `TODO.md` for planned features including:
 - Apply display format/tone mapping from the active composite when loading presets. HDR toggles look up the current nodes rather than a captured original instance.
 - The public projection helper takes field of view in degrees and produces WebGPU depth in [0, 1].
 - Legacy presets cannot reconstruct parameters omitted by older serializers. Corrected seeds/camera mean legacy scenes are not pixel-identical.
+
+
+## Camera, splats, and resource caching
+
+`RenderParticlesNode` supports point-list (default) and instanced Gaussian quads in the same shader. The 160-byte uniform contains MVP, view, viewport/sigma, and lens vec4s. Lens units are millimeters internally, with a fixed 24 mm sensor height. Gaussian pixel integrals normalize premultiplied RGB and alpha over a three-sigma footprint. Blur uses a variance-matched thin-lens approximation; there is no aperture polygon or depth occlusion. Use the actual HDR target dimensions, not canvas dimensions, for pixel footprints.
+
+Camera/lens/mode properties are registered in `presets.ts`. `GPURenderNode.imageSignature()` identifies edits requiring a fresh image. Pipeline checks signatures before simulation rendering and presentation: camera changes reset image history, while paused changes call `renderCurrentState()` without advancing particles. Rendering a snapshot counts as one accumulation sample. `renderCurrentState()` does nothing before the first simulation step.
+
+Nodes use inherited `bindGroup(device, pipeline, entries)` for group 0. The bounded cache keys the exact pipeline and bound resources (including buffer offset/size), accommodates ping-pong pairs, and is cleared on resource disposal/hot reload. Do not cache transient canvas views. `tests/renderer.test.mjs` tests cache invalidation and camera preset compatibility; `tests/renderer.gpu.ts` tests actual shader energy, lens response, culling, and paused edits. GPU test counts compare cached/uncached group creation; they do not measure hardware FPS.
