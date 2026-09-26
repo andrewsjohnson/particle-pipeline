@@ -9,13 +9,10 @@ export class ResetVelNode extends GPUComputeNode {
     // Guard: skip if not initialized yet or on first frame
     if (!this.pipeline || ctx.frameIndex === 0) return false;
 
-    const bindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const bindGroup = this.bindGroup(ctx.device, this.pipeline, [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 1, resource: { buffer: ctx.particleDst } },
-      ],
-    });
+      ]);
 
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.pipeline);

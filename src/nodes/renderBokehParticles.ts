@@ -70,13 +70,10 @@ export class RenderBokehParticlesNode extends GPURenderNode {
 
     this.updateParams(ctx);
 
-    const bindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const bindGroup = this.bindGroup(ctx.device, this.pipeline, [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 1, resource: { buffer: this.paramBuffer } },
-      ],
-    });
+      ]);
 
     //
     // PASS

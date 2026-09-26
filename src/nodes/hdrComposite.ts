@@ -53,13 +53,10 @@ export class HDRCompositeNode extends GPURenderNode {
     if (!this.pipeline) return false;
 
     // Bind HDR accumulation texture
-    const bindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const bindGroup = this.bindGroup(ctx.device, this.pipeline, [
         { binding: 0, resource: ctx.particleRenderTarget }, // HDR float16 texture view
         { binding: 1, resource: this.sampler },
-      ],
-    });
+      ]);
 
     const pass = encoder.beginRenderPass({
       colorAttachments: [

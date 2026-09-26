@@ -56,14 +56,11 @@ export class DragNode extends GPUComputeNode {
     if (ctx.frameIndex === 0) return false;
     if (this.updateParams(ctx) === false) return false;
 
-    const bindGroup = ctx.device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [
+    const bindGroup = this.bindGroup(ctx.device, this.pipeline, [
         { binding: 0, resource: { buffer: ctx.particleSrc } },
         { binding: 1, resource: { buffer: ctx.particleDst } },
         { binding: 2, resource: { buffer: this.paramBuffer } },
-      ],
-    });
+      ]);
 
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.pipeline);
