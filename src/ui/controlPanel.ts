@@ -33,6 +33,14 @@ export function buildControlPanel(opts: ControlPanelOpts) {
     opts;
 
   const pane = new Pane({ title: "Particle Pipeline" });
+  // Tweakpane sits 8px from the viewport edges; scroll controls, not the canvas.
+  const panel = pane.element;
+  panel.style.maxHeight = "calc(100vh - 16px)";
+  panel.style.maxHeight = "calc(100dvh - 16px)";
+  panel.style.overflowY = "auto";
+  panel.style.overscrollBehaviorY = "contain";
+  panel.tabIndex = 0;
+  panel.setAttribute("aria-label", "Particle Pipeline controls");
   registerFolderButtonsPlugin(pane);
 
   const simSettings = {
