@@ -1,3 +1,4 @@
+import { buildPrintPanel } from "./printPanel.ts";
 import { PARTICLE_SIZE } from "../particles/particleLayout.ts";
 import { Pane } from "tweakpane";
 import type { Pipeline } from "../pipeline.ts";
@@ -24,6 +25,7 @@ type ControlPanelOpts = {
   onSaveExr: () => Promise<void>;
   onSaveHdr: () => Promise<void>;
   onToggleHdr: (enabled: boolean) => void;
+  onPrintBusy?: (busy: boolean) => void;
 };
 
 export function buildControlPanel(opts: ControlPanelOpts) {
@@ -109,6 +111,12 @@ export function buildControlPanel(opts: ControlPanelOpts) {
   (pane as any)
     .addBlade({ view: "button", label: "Capture", title: "Save HDR (Radiance .hdr)" })
     .on("click", onSaveHdr);
+
+  buildPrintPanel(pane, pipeline, opts.onPrintBusy, () => {
+    simSettings.particleCount=pipeline.particleCount;
+    simSettings.baseOpacity=pipeline.baseOpacity;
+    simSettings.randomSeed=pipeline.randomSeed;
+  });
 
   // Node controls
   const computeOptions = Object.fromEntries(

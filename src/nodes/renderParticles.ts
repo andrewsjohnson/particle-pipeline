@@ -31,17 +31,19 @@ export class RenderParticlesNode extends GPURenderNode {
   focusDistance = Math.sqrt(75);
   fStop = 2.8;
   depthOfField = false;
+  apertureBlades = 0;
+  apertureRotation = 0;
   metersPerUnit = 1;
   splatSigma = 0.6; // standard deviation in HDR target pixels
   maxSplatSigma = 16;
   private pipelineKey = "";
-  private readonly uniforms = new Float32Array(40);
+  private readonly uniforms = new Float32Array(48);
 
   /** Includes only settings that change accumulated radiance. */
   imageSignature() {
     return JSON.stringify([this.renderMode, this.blendMode, this.cameraPosition,
       this.cameraTarget, this.fovDegrees, this.focusDistance, this.fStop,
-      this.depthOfField, this.metersPerUnit, this.splatSigma, this.maxSplatSigma]);
+      this.depthOfField, this.apertureBlades, this.apertureRotation, this.metersPerUnit, this.splatSigma, this.maxSplatSigma]);
   }
 
   // Particle render resources
@@ -57,10 +59,10 @@ export class RenderParticlesNode extends GPURenderNode {
   async onPipelineReady(device: GPUDevice, _ctx: any) {
     this.device = device;
     
-    // MVP + view matrices, viewport/sigma and lens parameters (160 bytes)
+    // MVP + view matrices, viewport/sigma and lens parameters plus print sample/tile (192 bytes)
     this.paramBuffer = device.createBuffer({
       label: "renderParticles.params",
-      size: 4 * 40,
+      size: 4 * 48,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     
@@ -169,7 +171,9 @@ export class RenderParticlesNode extends GPURenderNode {
   }
   
   updateParams(ctx: any) {
-    const aspect = ctx.renderTextureWidth / ctx.renderTextureHeight;
+    const fullWidth = ctx.fullWidth ?? ctx.renderTextureWidth;
+    const fullHeight = ctx.fullHeight ?? ctx.renderTextureHeight;
+    const aspect = fullWidth / fullHeight;
     const fov = Math.max(1, Math.min(170, this.fovDegrees));
     const proj = perspectiveMatrix(fov, aspect, 0.1, 500);
     const [x, y, z] = this.cameraPosition;
@@ -185,6 +189,8 @@ export class RenderParticlesNode extends GPURenderNode {
     const unitsMM = Math.max(0.0001, this.metersPerUnit) * 1000;
     this.uniforms.set([focalMM, Math.max(focalMM+0.001, this.focusDistance*unitsMM),
       this.depthOfField ? Math.max(0.1, this.fStop) : 0, unitsMM], 36);
+    this.uniforms.set(ctx.lensSample ?? [0, 0, 1, 0], 40);
+    this.uniforms.set([ctx.tileX ?? 0, ctx.tileY ?? 0, fullWidth, fullHeight], 44);
     ctx.queue.writeBuffer(this.paramBuffer, 0, this.uniforms);
   };
 
@@ -280,6 +286,8 @@ export class RenderParticlesNode extends GPURenderNode {
     camera.addBinding(this, "fovDegrees", {label:"Vertical FOV", min:1, max:170});
     camera.addBinding(this, "depthOfField", {label:"Depth of field"});
     camera.addBinding(this, "focusDistance", {label:"Focus distance", min:0.01, max:100});
+    camera.addBinding(this, "apertureBlades", {label:"Print aperture", options:{Circle:0, Triangle:3, Square:4, Pentagon:5, Hexagon:6, Heptagon:7, Octagon:8, Nonagon:9}});
+    camera.addBinding(this, "apertureRotation", {label:"Aperture rotation", min:0, max:360});
     camera.addBinding(this, "fStop", {label:"F-stop", min:0.7, max:32});
     camera.addBinding(this, "metersPerUnit", {label:"Meters per unit", min:0.001, max:10});
     camera.addBinding(this, "splatSigma", {label:"Sharp sigma (px)", min:0.25, max:8});

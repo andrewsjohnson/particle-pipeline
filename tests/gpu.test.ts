@@ -1,3 +1,4 @@
+import { checkPrint } from "./print.gpu.ts";
 import { BindGroupCache } from "../src/utils/bindGroupCache.ts";
 import { checkRenderer } from "./renderer.gpu.ts";
 import { Pipeline } from '../src/pipeline.ts';
@@ -119,10 +120,11 @@ async function run() {
   buildControlPanel({pipeline,simState:{paused:true},hdrEnabled:false,onPauseChange:()=>{},onReset:()=>pipeline.resetSimulation(),onSaveExr:async()=>{},onSaveHdr:async()=>{},onToggleHdr:()=>{}});
 
   const renderer = await checkRenderer(device,ctx);
+  const print = await checkPrint(device,pipeline);
   await device.queue.onSubmittedWorkDone();
   await new Promise(resolve=>setTimeout(resolve,100));
   assert(errors.length===0,errors.join('\n'));
-  return {passed:true,renderer,steadyStateBindings,uncachedBindings,checks:['all compute shaders','distinct adjacent particles','repeatable seeded steps','presentation does not accumulate','resize preserves simulation','trail reset','GPU preset round-trip','control panel'],presentation:offscreen?'offscreen GPU texture':'canvas',adapter:adapter.info.description};
+  return {passed:true,print,renderer,steadyStateBindings,uncachedBindings,checks:['all compute shaders','distinct adjacent particles','repeatable seeded steps','presentation does not accumulate','resize preserves simulation','trail reset','GPU preset round-trip','control panel'],presentation:offscreen?'offscreen GPU texture':'canvas',adapter:adapter.info.description};
 }
 
 run().then(result=>{

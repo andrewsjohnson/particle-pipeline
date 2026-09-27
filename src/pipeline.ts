@@ -213,7 +213,7 @@ export class Pipeline {
     }
 
     /** Exactly one deterministic step, also used for offline rendering. */
-    step() {
+    step(render = true) {
         if (![...this.computeNodes, ...this.renderNodes].every((node) => node.ready)) return;
         this.syncImageSignature();
         const dt = SIMULATION_STEP;
@@ -234,14 +234,14 @@ export class Pipeline {
     
         // 3. render nodes
         for (const node of this.renderNodes) {
-            if (!node.presentationOnly) node.record(encoder, ctx);
+            if (render && !node.presentationOnly) node.record(encoder, ctx);
         }
 
         // Submit each step separately: subsequent queue.writeBuffer calls must
         // not overwrite uniforms used by an earlier step in the same submission.
         this.device.queue.submit([encoder.finish()]);
         this.frameIndex++;
-        this.accumulationFrameIndex++;
+        if (render) this.accumulationFrameIndex++;
     }
 
     private syncImageSignature() {
@@ -372,6 +372,15 @@ export class Pipeline {
         // Avoid zero seed to keep xor/shift RNGs from degenerating.
         this.randomSeed = next === 0 ? 1 : next;
         this.resetSimulation();
+    }
+
+    dispose() {
+        for (const node of [...this.computeNodes, ...this.renderNodes]) node.dispose();
+        this.particleA?.destroy();
+        this.particleB?.destroy();
+        this.renderTexture.destroy();
+        this.nodeListeners = [];
+        this.initialized = false;
     }
 
     private _emitNodesChanged() {

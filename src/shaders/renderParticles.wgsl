@@ -27,6 +27,8 @@ struct Params {
     view : mat4x4<f32>,
     viewport : vec4<f32>, // width, height, sharp sigma, max sigma (target pixels)
     lens : vec4<f32>, // focal length mm, focus mm, f-stop (0 = off), mm/world unit
+    sample : vec4<f32>, // pupil XY, sample weight, sampled-lens enabled
+    tile : vec4<f32>, // tile origin XY (top-left), full output dimensions
 };
 
 struct VSOut {
@@ -35,6 +37,13 @@ struct VSOut {
     @location(1) @interpolate(flat) center : vec2<f32>,
     @location(2) @interpolate(flat) sigma : f32,
 };
+
+fn tile_clip(clip: vec4<f32>) -> vec4<f32> {
+    let scale = params.tile.zw / params.viewport.xy;
+    let offset = vec2<f32>(params.tile.z-2.0*params.tile.x-params.viewport.x,
+        2.0*params.tile.y+params.viewport.y-params.tile.w) / params.viewport.xy;
+    return vec4<f32>(clip.xy * scale + clip.w * offset, clip.zw);
+}
 
 @vertex
 fn vs_main(@builtin(vertex_index) i : u32) -> VSOut {
@@ -50,9 +59,9 @@ fn vs_main(@builtin(vertex_index) i : u32) -> VSOut {
     let world = vec4<f32>(p.position, 1.0);
 
     // Apply full camera transform
-    o.pos = params.mvp * world;
+    o.pos = tile_clip(params.mvp * world);
     // Premultiply RGB by alpha so additive blending respects particle opacity
-    let alpha = p.color.a * p.opacityScale;
+    let alpha = p.color.a * p.opacityScale * params.sample.z;
     o.col = vec4<f32>(p.color.rgb * alpha, alpha);
     return o;
 }
@@ -62,7 +71,7 @@ fn vs_main(@builtin(vertex_index) i : u32) -> VSOut {
 fn vs_splat(@builtin(vertex_index) corner : u32, @builtin(instance_index) i : u32) -> VSOut {
     let p = src.particles[i];
     var o : VSOut;
-    let clip = params.mvp * vec4<f32>(p.position, 1.0);
+    var clip = params.mvp * vec4<f32>(p.position, 1.0);
     if (p.alive == 0u || p.needsRespawn == 1u || clip.w <= 0.0 || clip.z < 0.0 || clip.z > clip.w) {
         o.pos = vec4<f32>(2.0, 2.0, 0.0, 1.0);
         return o;
@@ -72,15 +81,22 @@ fn vs_splat(@builtin(vertex_index) corner : u32, @builtin(instance_index) i : u3
     if (params.lens.z > 0.0) {
         let f = params.lens.x;
         let focus = params.lens.y;
-        radius = 0.5 * (f / params.lens.z) * f * abs(z-focus) / (z * (focus-f)) * params.viewport.y / 24.0;
+        radius = 0.5 * (f / params.lens.z) * f * (z-focus) / (z * (focus-f)) * params.tile.w / 24.0;
     }
-    let sigma = min(params.viewport.w, sqrt(params.viewport.z * params.viewport.z + radius * radius * 0.25));
+    // A lens sample shifts the projection toward the sampled pupil point;
+    // all samples coincide at the focus plane, and near/far blur reverses sign.
+    var sigma = min(params.viewport.w, sqrt(params.viewport.z * params.viewport.z + radius * radius * 0.25));
+    if (params.sample.w > 0.0) {
+        clip = vec4<f32>(clip.xy + params.sample.xy * radius * 2.0 / params.tile.zw * clip.w, clip.zw);
+        sigma = params.viewport.z;
+    }
+    clip = tile_clip(clip);
     let q = array<vec2<f32>, 4>(vec2<f32>(-1,-1), vec2<f32>(1,-1), vec2<f32>(-1,1), vec2<f32>(1,1));
     o.pos = clip;
     o.pos = vec4<f32>(clip.xy + q[corner] * (3.0*sigma + 0.5) * 2.0 / params.viewport.xy * clip.w, clip.zw);
     o.center = (clip.xy / clip.w * vec2<f32>(0.5,-0.5) + 0.5) * params.viewport.xy;
     o.sigma = sigma;
-    let alpha = p.color.a * p.opacityScale;
+    let alpha = p.color.a * p.opacityScale * params.sample.z;
     o.col = vec4<f32>(p.color.rgb * alpha, alpha);
     return o;
 }

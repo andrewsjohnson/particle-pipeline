@@ -60,3 +60,33 @@ For headless environments without a working canvas swapchain, `/tests/gpu.html?o
 The suite also checks splat RGB/alpha energy across sizes and subpixel offsets, lens focus/f-stop behavior, paused camera changes, culling, degenerate camera controls, and actual bind-group creation counts. The page displays focused/defocused/stopped-down float-texture readbacks. In the 128-particle regression fixture, 20 warmed simulation/presentation cycles create **0 cached versus 160 uncached bind groups**. This is an allocation measurement, not an FPS claim; hardware performance still needs profiling on your GPU.
 
 The CPU suite does not substitute for these GPU checks. The older experimental `RenderBokehParticlesNode` remains outside the editor; the supported Gaussian path is part of `RenderParticlesNode`.
+
+## Print renders and sampled lenses
+
+Open **Print render** to choose output pixels, DPI, warm-up steps, accumulation steps, and renderer. Rendering restarts a private copy of your scene from its saved seed. It preserves the live simulation and image, and temporarily pauses the preview to leave GPU time for the job.
+
+1. Compose in points or Gaussian preview. In **Camera & focus**, enable **Depth of field**, set focus distance/f-stop, and choose a circular or polygonal **Print aperture** and rotation.
+2. In **Composite**, adjust **Exposure (stops)**, **White balance** RGB gains, and **Tone mapping** (Filmic, Reinhard, or Linear). These changes work while paused without accumulating more particles. **Show clipped highlights** marks channels that will reach the SDR ceiling in magenta; this diagnostic is never baked into exports.
+3. In **Print render**, choose **Sampled lens** for aperture-shaped bokeh or **Fast Gaussian** for a quicker approximation. Begin with a small output. Increase **Lens samples/step** for smoother defocus; 32 is a starting point, while large isolated bokeh may need hundreds or more. Lens sampling respects the camera's depth-of-field switch. **Blur limit** applies only to Gaussian mode; the sampled lens uses small reconstruction footprints at the displaced sample positions.
+4. Choose the file format and click **Render and save**. Progress shows warm-up, simulation, lens sampling, and tile readback. **Cancel render** stops after bounded queued work and aborts the output. Save the render recipe from the completion screen, then use **Load render recipe** to restore the scene, color, seed, and output settings later.
+
+**PNG** is streamed, 16-bit RGB with sRGB encoding and DPI metadata, with exposure/white balance/tone mapping applied. **EXR** is streamed, uncompressed float32 RGB with linear sRGB primaries, ungraded values, and embedded render-recipe metadata. Both use top-down rows and match the preview's orientation. EXR deliberately retains brightness above 1 for later grading. The existing immediate EXR/HDR capture buttons still save the current accumulated image.
+
+Output dimensions are independent of the canvas. A 30 × 40 inch image at 300 DPI is **9000 × 12000 pixels**; DPI changes metadata/physical size, not pixel count. Jobs support up to 150 megapixels and 30,000 pixels per side, subject to validated band and GPU limits. These are input limits, not a guarantee that every device can finish a large job.
+
+Chrome/Edge's direct file-save API streams output to disk where available. Other browsers download a Blob capped at 512 MiB and reject jobs whose estimated uncompressed size is too large. A 9000 × 12000 float RGB EXR is approximately 1.3 GB and needs direct file saving. Browser/OS permissions and storage space still apply.
+
+### Rendering semantics and costs
+
+- The sampled renderer integrates area-uniform points on a circular pupil or a regular polygon. All projections coincide at the focus plane; defocus reverses across it. It uses a geometric thin-lens model and a small pixel-integrated Gaussian reconstruction filter. It does **not** model lens aberrations, diffraction, occlusion, scattering, or aperture-dependent exposure. Apertures are normalized to keep artistic brightness independent of sample count and f-stop.
+- Print jobs use **additive light accumulation** regardless of the live renderer's blend/clear/trail modes. Lens samples are averaged for each particle state; simulation steps are summed to build trails. Doubling lens samples improves convergence, while doubling accumulation duration can add more light. Warm-up steps do not contribute light. The timestep is 1/60 second.
+- Tiles use the full image's camera and pixel scale. Each tile replays the same simulation from its seed, avoiding a full-size GPU texture or a stored history of particle positions. This trades extra simulation work for bounded image memory. Smaller tiles save memory but repeat more work. Print dimensions can exceed the GPU's maximum texture size.
+- The isolated job adds two particle buffers (160 bytes per particle), its tile texture, node resources, and a CPU output band. At three million particles the extra particle buffers alone are about 458 MiB. The panel reports an estimate. A small tile does not reduce particle-buffer memory.
+- The atomic flocking node cannot guarantee identical replay, so multi-tile jobs reject it explicitly. Single-tile flocking works but remains nondeterministic. Default-node replay is repeatable on the same GPU/build; cross-device bitwise identity is not guaranteed.
+- Color controls use linear-sRGB input and the sRGB transfer function for SDR/PNG. The old preview's approximate gamma and vertical inversion have been corrected, so existing compositions may look slightly different. HDR display preserves graded linear values without SDR tone mapping or clipping diagnostics.
+
+### Print verification
+
+`npm run check` covers aperture sampling, print preflight, recipe validation, PNG chunks/DPI/16-bit samples, EXR offsets/channel order, color math, cancellation, and stream errors. `/tests/gpu.html?offscreen=1` additionally compares tiled/untiled lens and Gaussian renders, repeats a print bit-for-bit, checks live-state preservation and aborted outputs, and verifies GPU/CPU color and orientation agreement. Its gallery shows actual circular, triangular, rotated, and focused readbacks. Headless checks use real GPU textures but do not validate native canvas presentation or physical-GPU throughput.
+
+Technical references: [PBRT projective cameras](https://www.pbr-book.org/4ed/Cameras_and_Film/Projective_Camera_Models), [PNG specification](https://www.w3.org/TR/png-3/), [OpenEXR file layout](https://openexr.com/en/latest/OpenEXRFileLayout.html).

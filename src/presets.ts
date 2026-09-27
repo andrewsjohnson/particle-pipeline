@@ -51,8 +51,8 @@ export const computeNodeTypes: NodeDefinition[] = [
   { key: "opacityScale", label: "OpacityScale", ctor: OpacityScaleNode, properties: ["fadeInTime", "power"] },
 ];
 export const renderNodeTypes: NodeDefinition[] = [
-  { key: "renderParticles", label: "RenderParticles", ctor: RenderParticlesNode, properties: ["clearMode", "trailFade", "blendMode", "renderMode", "cameraPosition", "cameraTarget", "fovDegrees", "focusDistance", "fStop", "depthOfField", "metersPerUnit", "splatSigma", "maxSplatSigma"], enums: { renderMode: ["points", "splats"], clearMode: ["accumulate", "clear", "trail"], blendMode: ["normal", "additive"] } },
-  { key: "composite", label: "Composite", ctor: CompositeNode, properties: ["enabled"] },
+  { key: "renderParticles", label: "RenderParticles", ctor: RenderParticlesNode, properties: ["clearMode", "trailFade", "blendMode", "renderMode", "cameraPosition", "cameraTarget", "fovDegrees", "focusDistance", "fStop", "depthOfField", "apertureBlades", "apertureRotation", "metersPerUnit", "splatSigma", "maxSplatSigma"], enums: { renderMode: ["points", "splats"], clearMode: ["accumulate", "clear", "trail"], blendMode: ["normal", "additive"] } },
+  { key: "composite", label: "Composite", ctor: CompositeNode, properties: ["enabled", "exposureEV", "whiteBalance", "toneMap", "showClipping"], enums: {toneMap:["aces", "reinhard", "linear"]} },
 ];
 const definitions = [...computeNodeTypes, ...renderNodeTypes];
 

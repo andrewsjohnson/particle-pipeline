@@ -5,7 +5,8 @@ var hdrTex : texture_2d<f32>;
 var hdrSampler : sampler;
 
 struct Params {
-    applyToneMap : u32, // 1 = tone map & gamma, 0 = passthrough (HDR)
+    display : vec4<f32>, // SDR enabled, EV, tone map, clipping preview
+    balance : vec4<f32>, // RGB gains
 }
 @group(0) @binding(2)
 var<uniform> params : Params;
@@ -29,52 +30,29 @@ fn vs_main(@builtin(vertex_index) vid : u32) -> VSOut {
     var out : VSOut;
     let uv = quad[vid];
     out.pos = vec4<f32>(uv * 2.0 - 1.0, 0.0, 1.0);
-    out.uv = uv;
+    out.uv = vec2<f32>(uv.x, 1.0-uv.y);
     return out;
+}
+
+fn to_srgb(value: vec3<f32>) -> vec3<f32> {
+    return select(1.055 * pow(value, vec3<f32>(1.0/2.4))-0.055,
+        12.92*value, value <= vec3<f32>(0.0031308));
 }
 
 @fragment
 fn fs_main(in: VSOut) -> @location(0) vec4<f32> {
-    //--- Base sample --------------------------------------------------
-    let base = textureSample(hdrTex, hdrSampler, in.uv).xyz;
-
-    //--- Naive bloom sample ------------------------------------------
-    // var bloom = vec3<f32>(0.0);
-    // let radius = 2.0;     // good start for 1M particles
-    // let samples = 8.0;
-
-    // let offsets = array<vec2<f32>, 8>(
-    //     vec2<f32>(-1.0,  0.0),
-    //     vec2<f32>( 1.0,  0.0),
-    //     vec2<f32>( 0.0, -1.0),
-    //     vec2<f32>( 0.0,  1.0),
-    //     vec2<f32>(-1.0, -1.0),
-    //     vec2<f32>( 1.0, -1.0),
-    //     vec2<f32>(-1.0,  1.0),
-    //     vec2<f32>( 1.0,  1.0),
-    // );
-
-    // for (var i = 0u; i < 8u; i++) {
-    //     let uv2 = in.uv + offsets[i] * (radius / 1000.0);
-    //     bloom += textureSample(hdrTex, hdrSampler, uv2).xyz;
-    // }
-    // bloom /= samples;
-
-    //--- Add bloom -----------------------------------------------------
-    var hdr = base; // + bloom * 0.8;
-
-    //--- Tone-map (Filmic ACES-ish) -----------------------------------
-    if (params.applyToneMap == 1u) {
-        let a = 2.51;
-        let b = 0.03;
-        let c = 2.43;
-        let d = 0.59;
-        let e = 0.14;
-        hdr = (hdr * (a*hdr + b)) / (hdr * (c*hdr + d) + e);
-
-        //--- Gamma ---------------------------------------------------------
-        hdr = pow(hdr, vec3<f32>(1.0/2.2));
+    var hdr = max(vec3<f32>(0.0), textureSample(hdrTex, hdrSampler, in.uv).xyz)
+        * exp2(params.display.y) * params.balance.xyz;
+    if (params.display.x > 0.0) {
+        if (params.display.z < 0.5) {
+            hdr = hdr * (2.51*hdr+0.03) / (hdr*(2.43*hdr+0.59)+0.14);
+        } else if (params.display.z < 1.5) {
+            hdr = hdr / (1.0+hdr);
+        }
+        if (params.display.w > 0.0 && any(hdr >= vec3<f32>(1.0))) {
+            return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+        }
+        hdr = to_srgb(clamp(hdr, vec3<f32>(0.0), vec3<f32>(1.0)));
     }
-
     return vec4<f32>(hdr, 1.0);
 }
