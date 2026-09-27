@@ -65,6 +65,10 @@ pnpm dev    # Start dev server (default: http://localhost:5173)
 npm run check  # CPU regressions + TypeScript + production bundle
 ```
 
+### Control panel scrolling
+
+`buildControlPanel` bounds the Tweakpane root to the viewport height minus its 8px top/bottom margins, using dynamic viewport units with a `vh` fallback. The panel scrolls vertically independently of the fixed canvas, contains overscroll, and is keyboard-focusable. Keep this bound on the root so expanding node/print folders cannot push controls offscreen.
+
 ### GitHub Pages
 
 `.github/workflows/pages.yml` runs CPU tests and builds on pull requests to `master`, and deploys `dist/` on pushes to `master` or manual runs from that branch. The repository's Pages source must be **GitHub Actions**. `vite.config.ts` uses `/particle-pipeline/` for production builds and preview, and `/` for development. The published URL is `https://andrewsjohnson.github.io/particle-pipeline/`; changing the repository name or adding a custom domain requires revisiting the base URL. Pages serves the built app, not the development-only GPU test harness.
